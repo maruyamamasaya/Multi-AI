@@ -36,7 +36,8 @@ h1 { margin: 0; font-size: .9rem; }
 .zoom-actions button { min-width: 28px; height: 30px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26; cursor: pointer; }
 .zoom-actions .zoom-reset { min-width: 50px; padding: 0 5px; color: #b9efd5; font-size: .68rem; font-weight: 750; }
 .theme-control { position: relative; color: #91d8b5; }
-.workspace-row .theme-trigger { display: flex; min-width: 78px; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; cursor: pointer; }
+.workspace-row .theme-trigger { display: flex; min-width: 78px; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26; cursor: pointer; }
+.workspace-row .theme-trigger:hover, .workspace-row .theme-trigger:focus-visible { border-color: #91d8b5; outline: none; background: #29362f; }
 .theme-trigger span:first-child { color: #91d8b5; font-size: .8rem; }
 .theme-menu { position: absolute; z-index: 50; top: 38px; right: 0; width: 390px; padding: 10px; border: 1px solid #405148; border-radius: 14px; color: #e7ece9; background: #151b17; box-shadow: 0 20px 60px rgb(0 0 0 / 52%); }
 .theme-menu::before { position: absolute; top: -5px; right: 28px; width: 9px; height: 9px; border-top: 1px solid #405148; border-left: 1px solid #405148; content: ""; background: inherit; transform: rotate(45deg); }
@@ -299,3 +300,54 @@ button:disabled { opacity: .35; cursor: default; }
 :root[data-theme="retro-pc"] .pane-header { color: #ffd77a; background: #211506; }
 :root[data-theme="retro-pc"] :is(.pane-url, .answer-status, .launcher-heading p, .startup-description) { color: #b47d35; }
 :root[data-theme="retro-pc"] .app-bar::after { position: fixed; z-index: 40; inset: 0; pointer-events: none; content: ""; background: repeating-linear-gradient(0deg, transparent 0 2px, rgb(45 20 0 / 12%) 2px 3px); }
+
+/* Complete component tokens for authored themes. */
+:root[data-theme="terminal"] { --t-bg: #020503; --t-panel: #050b07; --t-panel-2: #08130b; --t-control: #0a180e; --t-border: #174b26; --t-border-strong: #32bd56; --t-text: #a5ffb4; --t-muted: #5fa86d; --t-accent: #5dff79; --t-accent-ink: #001b06; --t-danger: #ff6b65; --t-warning: #e4d26f; --t-radius: 2px; --t-shadow: 0 16px 50px rgb(0 255 72 / 7%); }
+:root[data-theme="cyber"] { --t-bg: #05051a; --t-panel: #0c0b2b; --t-panel-2: #12113a; --t-control: #171547; --t-border: #393778; --t-border-strong: #00dff5; --t-text: #e7f8ff; --t-muted: #8c9fc8; --t-accent: #00e7ff; --t-accent-ink: #071328; --t-danger: #ff6b9e; --t-warning: #f7cb6d; --t-radius: 7px; --t-shadow: 0 20px 70px rgb(32 0 97 / 55%), 0 0 28px rgb(0 231 255 / 9%); }
+:root[data-theme="windows-98"] { --t-bg: #008080; --t-panel: #c0c0c0; --t-panel-2: #d4d0c8; --t-control: #c0c0c0; --t-border: #808080; --t-border-strong: #000080; --t-text: #000; --t-muted: #404040; --t-accent: #000080; --t-accent-ink: #fff; --t-danger: #800000; --t-warning: #806000; --t-radius: 0; --t-shadow: 2px 2px 0 #000; }
+:root[data-theme="retro-pc"] { --t-bg: #0c0802; --t-panel: #171005; --t-panel-2: #201506; --t-control: #251906; --t-border: #69420f; --t-border-strong: #d88921; --t-text: #ffd681; --t-muted: #ad7937; --t-accent: #ffb13b; --t-accent-ink: #211000; --t-danger: #ff7861; --t-warning: #ffcf63; --t-radius: 3px; --t-shadow: 0 18px 60px rgb(69 35 0 / 65%), inset 0 0 25px rgb(255 177 59 / 4%); }
+
+:root[data-theme]:not([data-theme="default"]) body { color: var(--t-text); background: var(--t-bg); }
+:root[data-theme]:not([data-theme="default"]) :is(.saved-workspace-row, .common-prompt-row, .navigation-bar, .comparison-row, .bookmark-manager-filters) { border-color: var(--t-border); background: var(--t-panel); }
+:root[data-theme]:not([data-theme="default"]) :is(.service-launcher, .startup-selector, .theme-menu, .bookmark-delete-confirm > div) { border-color: var(--t-border-strong); border-radius: calc(var(--t-radius) + 7px); color: var(--t-text); background: var(--t-panel); box-shadow: var(--t-shadow); }
+:root[data-theme]:not([data-theme="default"]) :is(.theme-menu header span, .launcher-eyebrow, .bookmark-manager-header p) { color: var(--t-accent); }
+:root[data-theme]:not([data-theme="default"]) :is(.launcher-heading p, .startup-description, .bookmark-manager-filters label, .bookmark-edit-card label, .bookmark-card-content span, .bookmark-delete-confirm p) { color: var(--t-muted); }
+:root[data-theme]:not([data-theme="default"]) :is(.workspace-row button, .saved-workspace-row button, .saved-workspace-row select, .bookmark-actions select, .theme-trigger, .launcher-close, .launcher-cancel, .bookmark-manager-header button, .bookmark-card-actions button, .bookmark-delete-confirm button, .comparison-target button, .comparison-actions button) { border-color: var(--t-border); border-radius: var(--t-radius); color: var(--t-text); background: var(--t-control); }
+:root[data-theme]:not([data-theme="default"]) :is(.workspace-row button, .saved-workspace-row button, .launcher-close, .launcher-cancel, .bookmark-manager-header button, .bookmark-card-actions button, .bookmark-delete-confirm button, .comparison-target button, .comparison-actions button):hover:not(:disabled),
+:root[data-theme]:not([data-theme="default"]) :is(.workspace-row button, .saved-workspace-row button, .launcher-close, .launcher-cancel, .bookmark-manager-header button, .bookmark-card-actions button, .bookmark-delete-confirm button, .comparison-target button, .comparison-actions button):focus-visible { border-color: var(--t-border-strong); outline: none; color: var(--t-accent); background: var(--t-panel-2); box-shadow: 0 0 0 2px color-mix(in srgb, var(--t-accent) 24%, transparent); }
+:root[data-theme]:not([data-theme="default"]) :is(.saved-workspace-row input, .common-prompt-row textarea, .url-field input, .bookmark-manager-filters input, .bookmark-manager-filters select, .bookmark-edit-card input) { border-color: var(--t-border); border-radius: var(--t-radius); color: var(--t-text); background: var(--t-bg); }
+:root[data-theme]:not([data-theme="default"]) :is(.saved-workspace-row input, .common-prompt-row textarea, .url-field input, .bookmark-manager-filters input, .bookmark-manager-filters select, .bookmark-edit-card input):focus { border-color: var(--t-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--t-accent) 20%, transparent); }
+:root[data-theme]:not([data-theme="default"]) :is(.prompt-send-button, .navigation-bar .primary-button, .bookmark-card-actions .primary-button, .comparison-actions .primary-button) { border-color: var(--t-accent); border-radius: var(--t-radius); color: var(--t-accent-ink); background: var(--t-accent); }
+:root[data-theme]:not([data-theme="default"]) :is(.prompt-targets, .bookmark-card, .bookmark-edit-card, .comparison-target) { border-color: var(--t-border); border-radius: calc(var(--t-radius) + 4px); background: var(--t-panel-2); }
+:root[data-theme]:not([data-theme="default"]) .prompt-targets label { border: 1px solid transparent; border-radius: var(--t-radius); color: var(--t-text); background: var(--t-control); }
+:root[data-theme]:not([data-theme="default"]) :is(.view-tab.active, .prompt-targets label:has(input:checked), .comparison-target.active) { border-color: var(--t-border-strong); color: var(--t-accent); background: var(--t-panel-2); }
+:root[data-theme]:not([data-theme="default"]) :is(.pane-headers, .bookmark-manager) { color: var(--t-text); background: var(--t-bg); scrollbar-color: var(--t-border-strong) var(--t-panel); }
+:root[data-theme]:not([data-theme="default"]) .pane-header { border-bottom: 1px solid var(--t-border); color: var(--t-text); background: var(--t-panel-2); }
+:root[data-theme]:not([data-theme="default"]) .pane-actions button:hover:not(:disabled) { color: var(--t-accent); background: var(--t-control); }
+:root[data-theme]:not([data-theme="default"]) :is(.answer-status.completed, .comparison-send-status.success) { color: var(--t-accent); }
+:root[data-theme]:not([data-theme="default"]) :is(.answer-status.running) { color: var(--t-warning); }
+:root[data-theme]:not([data-theme="default"]) :is(.answer-status.failed, .comparison-send-status.failure, .comparison-error, .workspace-error, .startup-error) { color: var(--t-danger); }
+:root[data-theme]:not([data-theme="default"]) .loading-indicator { border-color: var(--t-border); border-top-color: var(--t-accent); }
+:root[data-theme]:not([data-theme="default"]) .theme-menu::before { border-color: var(--t-border-strong); background: var(--t-panel); }
+:root[data-theme]:not([data-theme="default"]) .workspace-row .theme-option { border-color: var(--t-border); border-radius: var(--t-radius); color: var(--t-text); background: var(--t-panel-2); }
+:root[data-theme]:not([data-theme="default"]) .workspace-row .theme-option:hover { border-color: var(--t-border-strong); background: var(--t-control); }
+:root[data-theme]:not([data-theme="default"]) .workspace-row .theme-option[aria-checked="true"] { border-color: var(--t-accent); color: var(--t-accent); background: var(--t-control); box-shadow: inset 3px 0 var(--t-accent); }
+
+:root[data-theme="terminal"] .brand::after { content: "~/multi-ai"; color: var(--t-muted); font-size: .56rem; }
+:root[data-theme="terminal"] .brand-mark { box-shadow: 0 0 12px rgb(93 255 121 / 24%); }
+:root[data-theme="terminal"] .answer-status span { animation: terminal-blink 1.2s steps(1) infinite; }
+:root[data-theme="terminal"] .theme-menu header strong::before { content: "$ "; color: var(--t-accent); }
+:root[data-theme="cyber"] .app-bar { background-image: linear-gradient(90deg, rgb(0 231 255 / 3%) 1px, transparent 1px), linear-gradient(rgb(179 108 255 / 3%) 1px, transparent 1px), linear-gradient(135deg, #090a27, #121036); background-size: 24px 24px, 24px 24px, auto; }
+:root[data-theme="cyber"] :is(.brand-mark, .answer-status.completed span) { text-shadow: 0 0 7px var(--t-accent); }
+:root[data-theme="cyber"] .pane-header { box-shadow: inset 0 -1px rgb(0 231 255 / 12%); }
+:root[data-theme="windows-98"] :is(.service-launcher, .startup-selector, .theme-menu, .bookmark-delete-confirm > div) { border: 2px outset #fff; border-radius: 0; box-shadow: 3px 3px 0 #000; }
+:root[data-theme="windows-98"] :is(.workspace-row button, .saved-workspace-row button, .launcher-close, .launcher-cancel, .bookmark-manager-header button, .bookmark-card-actions button, .bookmark-delete-confirm button) { border: 2px outset #fff; }
+:root[data-theme="windows-98"] :is(.workspace-row button, .saved-workspace-row button, .launcher-close, .launcher-cancel, .bookmark-manager-header button, .bookmark-card-actions button, .bookmark-delete-confirm button):active:not(:disabled) { border-style: inset; padding-top: 1px; padding-left: 1px; }
+:root[data-theme="windows-98"] .theme-menu header { margin: -6px -6px 7px; padding: 4px 5px; color: #fff; background: #000080; }
+:root[data-theme="windows-98"] .theme-menu header span { color: #fff; }
+:root[data-theme="windows-98"] .theme-menu::before { display: none; }
+:root[data-theme="retro-pc"] :is(.brand, .pane-title, .answer-status) { text-shadow: 0 0 5px rgb(255 177 59 / 40%); }
+:root[data-theme="retro-pc"] .theme-menu { box-shadow: var(--t-shadow), inset 0 0 32px rgb(255 177 59 / 5%); }
+
+@keyframes terminal-blink { 50% { opacity: .32; } }
+@media (prefers-reduced-motion: reduce) { .workspace-row .theme-option { transition: none; } :root[data-theme="terminal"] .answer-status span { animation: none; } }
