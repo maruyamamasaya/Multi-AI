@@ -493,17 +493,17 @@ describe('App', () => {
     render(<App />);
 
     const headers = await screen.findByLabelText('表示中タブ');
-    expect(screen.getByLabelText('AIサービスの現在のURL: https://example.com/')).toBeInTheDocument();
-    expect(screen.getByLabelText('AIサービスの現在のURL: https://example.org/')).toBeInTheDocument();
+    expect(screen.getByLabelText('AIサービス 1の現在のURL: https://example.com/')).toBeInTheDocument();
+    expect(screen.getByLabelText('AIサービス 2の現在のURL: https://example.org/')).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'AIサービスを更新' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'AIサービス 1を更新' }));
     await waitFor(() => expect(window.multiAI.reload).toHaveBeenCalledWith(1));
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'AIサービスを最小化' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'AIサービス 1を最小化' }));
     await waitFor(() => expect(window.multiAI.setTabVisibility).toHaveBeenCalledWith(1, false));
     expect(headers.firstElementChild?.children).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'AIサービスをこの画面から完全に閉じる' }));
+    fireEvent.click(screen.getByRole('button', { name: 'AIサービス 2をこの画面から完全に閉じる' }));
     await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(2));
   });
 
