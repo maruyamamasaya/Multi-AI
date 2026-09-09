@@ -1,0 +1,38 @@
+{
+  "name": "multi-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tiled desktop browser for using multiple AI web services.",
+  "main": "dist-electron/main/main.js",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.electron.json && tsc --noEmit -p tsconfig.renderer.json",
+    "test": "vitest run",
+    "build": "npm run build:electron && npm run build:renderer",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:renderer": "vite build",
+    "verify:fast": "npm run lint && npm run typecheck && npm test",
+    "verify": "npm run verify:fast && npm run build"
+  },
+  "dependencies": {
+    "electron": "44.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.10.0",
+    "jsdom": "30.0.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}

@@ -2,90 +2,71 @@
 
 最終更新: 2026-09-09
 
-> 本文書は理想案ではなく、リポジトリで確認できる現在の構成のみを記録します。
+## System Overview
 
-## 概要
-
-現在のリポジトリにはドキュメントのみがあり、実行可能なシステムはまだありません。以下は実装時に採用する初期構成です。実装と異なる状態になった場合は、実装に合わせて本書を更新します。
-
-## 技術スタック
-
-- 実行環境: Electron（Chromium ベースのデスクトップアプリ）
-- 言語: TypeScript
-- UI: React
-- 外部 Web 画面: Electron `WebContentsView`
-- パッケージ管理: Node.js 向けパッケージ管理ツール（実装開始時に確定）
-- テスト / lint / typecheck / build: 未導入
-
-## ディレクトリ構成
+Electron main processがデスクトップウィンドウを生成し、ViteでbuildしたReact rendererを読み込みます。preloadだけがElectron IPCへ接続し、rendererには限定した `window.multiAI` APIを公開します。
 
 ```text
-/
-├─ README.md          # 利用者向けの入り口
-├─ CURRENT.md         # 現在の進捗と次の作業
-├─ ARCHITECTURE.md    # 実際のシステム構成
-├─ AGENTS.md          # AI エージェントの作業ルール
-├─ decisions/         # 重要な設計判断
-└─ sessions/          # 作業セッションの記録
+Electron main
+  │  ipcMain: app:ping
+  ▼
+preload / contextBridge
+  │  window.multiAI.ping()
+  ▼
+React renderer
 ```
 
-ソースコード用のディレクトリはまだありません。
+## Technology Stack
 
-## 主要コンポーネント
+- Electron 44
+- React 19
+- TypeScript 6
+- Vite 8
+- ESLint 10
+- Vitest 5、Testing Library、jsdom
+- npm / `package-lock.json`
 
-アプリケーションコンポーネントは未実装です。初期版は次の責務に分けます。
+正確な依存バージョンは `package.json` と `package-lock.json` を正本とします。
 
-- メインプロセス: ウィンドウ、`WebContentsView`、セッション、ナビゲーションを管理する
-- UI レンダラー: ツールバー、分割レイアウト、サービス選択、ワークスペース設定を表示する
-- ローカル設定: レイアウト、サービス URL、ズーム率、最後のワークスペースを保存する
-- サービスビュー: AI サービスの既存 Web ページを読み込み、利用者が直接操作する
+## Directory Structure
 
-## データフロー
+```text
+src/
+├─ main/              # Electron main process
+├─ preload/           # rendererへ公開する限定API
+└─ renderer/          # React UIとunit test
+scripts/              # リポジトリ共通Verify
+```
 
-想定する基本データフローは次のとおりです。
+build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管理外です。
 
-1. UI レンダラーが保存済みワークスペースを読み込む。
-2. メインプロセスがレイアウトに対応する `WebContentsView` を生成・配置する。
-3. 各ビューが指定された AI サービスの Web ページを読み込む。
-4. 利用者は各 Web ページを直接操作する。
-5. レイアウトやサービス選択の変更をローカル設定へ保存する。
+## Main Components
 
-初期版では、AI サービス間でプロンプトや回答を自動転送しません。
+- `createMainWindow`: 安全なwebPreferencesで `BrowserWindow` を生成する。
+- preload: `contextBridge`で `multiAI.ping` だけを公開する。
+- `App`: IPC接続状態を表示する最小React画面。
 
-## DB 構成
+## Data Flow
 
-DB とスキーマは未導入です。
+利用者が接続確認ボタンを押すと、rendererが `window.multiAI.ping()` を呼び、preloadが `app:ping` をmainへ送ります。mainの `ipcMain.handle` が `pong` を返し、rendererが接続済み表示へ更新します。
 
-## 認証・権限
+## API / Database / Authentication
 
-アプリ独自のユーザー認証は初期版では導入しません。各 AI サービスのログイン画面と Cookie を利用し、Electron の永続セッションでログイン状態を保持します。資格情報をアプリ独自の設定ファイルへ保存しません。
+- 外部API: なし
+- Database: なし
+- アプリ独自認証: なし
+- Environment Variables: なし
+- External Services: 未接続
 
-## 外部サービス
+## Build and Deployment
 
-外部 AI API との連携は初期版では行いません。各サービスの公開 Web 画面をブラウザとして読み込みます。
+TypeScriptがmain/preloadを `dist-electron/` へ出力し、Viteがrendererを `dist-renderer/` へ出力します。インストーラー生成、署名、自動更新、CI/CDは未導入です。
 
-画面内要素を特定して入力・送信する自動操作は、サービス側の変更に弱く、利用条件の個別確認も必要なため初期版の対象外です。
+## Security Boundaries
 
-## デプロイ構成
+- rendererの `nodeIntegration` は無効。
+- `contextIsolation` は有効。
+- preloadは任意IPCを公開せず、固定した `ping` 操作のみ公開。
+- 外部Webコンテンツはまだ読み込まない。
 
-CI/CD、実行環境、ホスティング先は未定義です。
-
-## 重要な依存関係
-
-サードパーティ依存はまだありません。実装開始時に Electron、TypeScript、React と、必要最小限のビルド・検証ツールを追加します。
-
-## セキュリティ境界
-
-- 外部 Web ページでは Node.js integration を無効にする。
-- UI レンダラーとメインプロセス間は限定した IPC のみ許可する。
-- 外部ページからアプリ内部 API を直接呼び出せないようにする。
-- 外部ページの権限要求、ポップアップ、ダウンロード、新規ウィンドウを明示的に制御する。
-- セッションデータとローカル設定をリポジトリへ含めない。
-
-## 初期版の非目標
-
-- AI API の共通化
-- プロンプトの一括自動送信
-- 回答の自動収集・採点
-- Web ページの DOM 構造に依存する操作自動化
-- クラウド同期、チーム共有、独自アカウント管理
+将来の分割ブラウザ方針と見直し条件は [`decisions/001-tiled-electron-browser.md`](decisions/001-tiled-electron-browser.md) を参照してください。

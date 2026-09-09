@@ -16,22 +16,27 @@ AI API を共通化するのではなく、ChatGPT、Claude、Gemini など、�
 
 ## セットアップ
 
-現時点でセットアップが必要なソースコードや依存関係はありません。Electron、TypeScript、React を使った最小構成の追加後に、実際の手順をここへ追記します。
+Node.jsとnpmを用意し、`npm ci` を実行します。詳細は [`OPERATIONS.md`](OPERATIONS.md) を参照してください。
 
 ## 起動方法
 
-起動対象はまだありません。
+`npm start` でbuild後のElectronアプリを起動します。
 
 ## 環境変数
 
-必要な環境変数はまだありません。機密情報はリポジトリにコミットせず、将来の `.env.example` には値ではなく変数名と説明のみを記載してください。
+必要な環境変数はありません。
 
 ## 開発
 
-開発を始める前に [`AGENTS.md`](AGENTS.md) と [`CURRENT.md`](CURRENT.md) を読んでください。システムの現行構成は [`ARCHITECTURE.md`](ARCHITECTURE.md) に記載します。
+開発情報は役割ごとに分離しています。
 
-現時点で lint、typecheck、test、build のコマンドは定義されていません。ツールチェーン導入時に、再現可能なコマンドを本ファイルへ追記してください。
+- [`AGENTS.md`](AGENTS.md): AI向け作業規約
+- [`CURRENT.md`](CURRENT.md): 現在地
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): 現在のシステム構成
+- [`CODEMAP.md`](CODEMAP.md): コード検索の入口
+- [`TESTING.md`](TESTING.md): 検証方法
+- [`OPERATIONS.md`](OPERATIONS.md): セットアップ、起動、運用、配布
 
 ## デプロイ
 
-デプロイ対象とデプロイ方法はまだ定義されていません。
+デプロイ対象とデプロイ方法はまだ定義されていません。決定後の手順は `OPERATIONS.md` を正本とします。
