@@ -1,5 +1,6 @@
 import { normalizeNavigationUrl, type ViewId } from './navigation';
 import { getAiService, getAiServiceByUrl, type AiServiceId } from './ai-services';
+import { MAX_VISIBLE_TABS } from './pane-layout';
 
 export interface WorkspaceSnapshot {
   viewCount: number;
@@ -32,7 +33,7 @@ export const parseWorkspaceSnapshot = (
     viewCount: fallbackUrls.length,
     urls: [...fallbackUrls],
     serviceIds: fallbackUrls.map((url) => getAiServiceByUrl(url)?.id ?? null),
-    visibleIndices: fallbackUrls.slice(0, 4).map((_, index) => index),
+    visibleIndices: fallbackUrls.slice(0, MAX_VISIBLE_TABS).map((_, index) => index),
     selectedIndex: 0,
     layout: workspaceLayoutForViewCount(fallbackUrls.length),
   };
@@ -62,8 +63,8 @@ export const parseWorkspaceSnapshot = (
     const visibleIndices = Array.isArray(candidate.visibleIndices)
       ? [...new Set(candidate.visibleIndices.filter(
           (index): index is number => Number.isInteger(index) && index >= 0 && index < viewCount,
-        ))].slice(0, 4)
-      : urls.slice(0, 4).map((_, index) => index);
+        ))].slice(0, MAX_VISIBLE_TABS)
+      : urls.slice(0, MAX_VISIBLE_TABS).map((_, index) => index);
     if (!visibleIndices.length) visibleIndices.push(0);
     return {
       viewCount,

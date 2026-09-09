@@ -40,6 +40,7 @@ describe('App', () => {
       setComparisonLayout: vi.fn().mockResolvedValue(undefined),
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
       setTabVisibility: vi.fn().mockResolvedValue({ visibleViewIds: [1, 2], selectedViewId: 1 }),
+      setPaneScrollOffset: vi.fn().mockResolvedValue(undefined),
       changeZoom: vi.fn().mockImplementation(async (action) => action === 'in' ? 110 : action === 'out' ? 90 : 100),
       startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
     };
@@ -432,7 +433,7 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: '画面 1: NotebookLM' })).toHaveTextContent('NNotebookLM');
   });
 
-  it('keeps many independent tabs, displays four, and labels duplicate AI panes', async () => {
+  it('keeps many independent tabs, displays up to six, and labels duplicate AI panes', async () => {
     const manyTabs = [
       { ...states[0], viewId: 1, serviceId: 'chatgpt' as const, url: 'https://chatgpt.com/c/one' },
       { ...states[0], viewId: 2, serviceId: 'chatgpt' as const, url: 'https://chatgpt.com/c/two' },
@@ -445,12 +446,13 @@ describe('App', () => {
     render(<App />);
     await waitFor(() => expect(screen.getAllByRole('button', { name: /画面 \d: / })).toHaveLength(6));
     const headers = screen.getByLabelText('表示中タブ');
-    expect(headers.children).toHaveLength(4);
+    expect(headers.firstElementChild?.children).toHaveLength(4);
     expect(headers).toHaveTextContent('ChatGPT 1');
     expect(headers).toHaveTextContent('ChatGPT 2');
     expect(headers).toHaveTextContent('ChatGPT 3');
-    expect(screen.getByRole('button', { name: 'Geminiを表示' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'ChatGPT 1を閉じる' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Geminiを表示する' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Geminiを表示する' })).toHaveTextContent('待機中');
+    expect(screen.getByRole('button', { name: 'ChatGPT 1を完全に閉じる' })).toBeEnabled();
   });
 
   it('separates hiding from closing and can restore a hidden tab', async () => {
@@ -462,13 +464,31 @@ describe('App', () => {
       .mockResolvedValueOnce({ visibleViewIds: [2], selectedViewId: 2 })
       .mockResolvedValueOnce({ visibleViewIds: [1, 2], selectedViewId: 1 });
     render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: 'ChatGPTを非表示' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを表示' })).toBeInTheDocument());
+    fireEvent.click(await screen.findByRole('button', { name: 'ChatGPTを待機中にする' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを表示する' })).toHaveTextContent('待機中'));
     expect(window.multiAI.removeView).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを表示' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを非表示' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを閉じる' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを表示する' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを待機中にする' })).toHaveTextContent('表示中'));
+    fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを完全に閉じる' }));
     await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(1));
+  });
+
+  it('shows a lightweight limit message when a seventh pane is requested', async () => {
+    const sixVisible = Array.from({ length: 6 }, (_, index) => ({
+      ...states[0],
+      viewId: index + 1,
+      serviceId: 'chatgpt' as const,
+      url: `https://chatgpt.com/c/${index + 1}`,
+    }));
+    const waiting = { ...states[1], viewId: 7, serviceId: 'claude' as const, url: 'https://claude.ai/chat/one', isVisible: false };
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([...sixVisible, waiting]);
+    window.multiAI.setTabVisibility = vi.fn().mockRejectedValue(new Error('最大6画面です。別のタブを待機中にしてから表示してください。'));
+    render(<App />);
+
+    const showButton = await screen.findByRole('button', { name: 'Claudeを表示する' });
+    expect(showButton).toHaveAttribute('title', '最大6画面です');
+    fireEvent.click(showButton);
+    expect(await screen.findByRole('alert')).toHaveTextContent('最大6画面です');
   });
 
 });

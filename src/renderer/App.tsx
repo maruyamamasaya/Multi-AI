@@ -11,6 +11,7 @@ import type { NamedWorkspaceSummary } from '../shared/named-workspaces';
 import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 import type { ZoomAction } from '../shared/zoom';
+import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH } from '../shared/pane-layout';
 
 type AnswerStatus = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -162,6 +163,7 @@ export const App = () => {
   const [zoomPercent, setZoomPercent] = useState(100);
   const [zoomError, setZoomError] = useState('');
   const [tabError, setTabError] = useState('');
+  const paneHeadersRef = useRef<HTMLDivElement>(null);
   const promptEligibility = useRef(new Map<ViewId, boolean>());
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
   const selectedBookmarkService = getAiServiceByUrl(selectedState?.url ?? '');
@@ -278,6 +280,13 @@ export const App = () => {
       setTabError(reason instanceof Error ? reason.message : 'タブの表示を変更できませんでした。');
     }
   };
+
+  useEffect(() => {
+    const headers = paneHeadersRef.current;
+    if (!headers || isFocusMode || isComparisonMode) return;
+    headers.scrollLeft = 0;
+    void window.multiAI.setPaneScrollOffset(0);
+  }, [visibleStates.length, isFocusMode, isComparisonMode]);
 
   const moveView = async (direction: ViewMoveDirection) => {
     setStates(await window.multiAI.moveView(selectedViewId, direction));
@@ -521,8 +530,10 @@ export const App = () => {
                 <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
                 <span className="view-service-name">{tabLabel(state)}</span>
               </button>
-              <button className="tab-visibility" type="button" aria-label={`${tabLabel(state)}を${state.isVisible ? '非表示' : '表示'}`} disabled={isFocusMode || isComparisonMode || (state.isVisible ? visibleStates.length === 1 : visibleStates.length >= 4)} onClick={() => void toggleTabVisibility(state)}>{state.isVisible ? '●' : '○'}</button>
-              <button className="tab-close" type="button" aria-label={`${tabLabel(state)}を閉じる`} disabled={isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView(state.viewId)}>×</button>
+              <button className="tab-visibility" type="button" title={state.isVisible ? '閉じずに待機中へ移す' : visibleStates.length >= MAX_VISIBLE_TABS ? '最大6画面です' : 'ワークスペースに表示する'} aria-label={`${tabLabel(state)}を${state.isVisible ? '待機中にする' : '表示する'}`} disabled={isFocusMode || isComparisonMode || (state.isVisible && visibleStates.length === 1)} onClick={() => void toggleTabVisibility(state)}>
+                <span aria-hidden="true">{state.isVisible ? '◉' : '◌'}</span><span>{state.isVisible ? '表示中' : '待機中'}</span>
+              </button>
+              <button className="tab-close" type="button" title="タブを完全に閉じる" aria-label={`${tabLabel(state)}を完全に閉じる`} disabled={isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView(state.viewId)}>×</button>
               </div>
             );
           })}
@@ -637,7 +648,13 @@ export const App = () => {
         </div>
       </form>}
       <NavigationBar state={selectedState} disabled={isComparisonMode} />
-      <div className={`pane-headers panes-${paneStates.length}`} aria-label="表示中タブ">
+      <div
+        className={`pane-headers panes-${paneStates.length}`}
+        aria-label="表示中タブ"
+        ref={paneHeadersRef}
+        onScroll={(event) => void window.multiAI.setPaneScrollOffset(event.currentTarget.scrollLeft)}
+      >
+        <div className="pane-headers-track" style={{ '--pane-count': paneStates.length, '--minimum-pane-width': `${MINIMUM_PANE_WIDTH}px` } as React.CSSProperties}>
         {paneStates.map((state) => {
           const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
           const answerStatus = answerStatuses.get(state.viewId) ?? 'idle';
@@ -649,6 +666,7 @@ export const App = () => {
             </span>
           </div>;
         })}
+        </div>
       </div>
       {isLauncherOpen ? <ServiceLauncher onCancel={closeLauncher} onSelect={addView} /> : null}
       {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}

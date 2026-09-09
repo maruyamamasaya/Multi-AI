@@ -29,6 +29,7 @@ import {
 import { normalizePrompt, parsePromptTargets, promptChannels, type PromptSendResult } from '../shared/prompt';
 import { nextZoomPercent, parseZoomAction, zoomChannels } from '../shared/zoom';
 import { tabVisibilityChannels, type TabVisibilityResult } from '../shared/tab-visibility';
+import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH, paneLayoutChannels } from '../shared/pane-layout';
 import {
   workspaceChannels,
   workspaceLayoutForViewCount,
@@ -65,6 +66,7 @@ let isStartupSelectionOpen = false;
 let comparisonLayout: (ComparisonLayoutState & { candidateViewIds: ViewId[] }) | null = null;
 let zoomPercent = 100;
 let zoomWriteQueue = Promise.resolve();
+let paneScrollOffset = 0;
 
 const applyZoomToAllViews = async (): Promise<void> => {
   for (const { view } of pageViews) {
@@ -144,7 +146,14 @@ const updateViewBounds = (): void => {
     return;
   }
   const visiblePageViews = getVisiblePageViews();
-  const bounds = calculateViewBounds(visiblePageViews.length, width, height, TOOLBAR_HEIGHT);
+  const bounds = calculateViewBounds(
+    visiblePageViews.length,
+    width,
+    height,
+    TOOLBAR_HEIGHT,
+    MINIMUM_PANE_WIDTH,
+    paneScrollOffset,
+  );
   pageViews.forEach(({ view, isVisible }) => view.setVisible(isVisible));
   visiblePageViews.forEach(({ view }, index) => {
     view.setBounds(bounds[index]);
@@ -233,7 +242,7 @@ const addView = async (serviceId: unknown): Promise<NavigationState[]> => {
   const service = getAiService(serviceId);
   if (!service) throw new Error('AIサービスを選択してください。');
   const url = service.url;
-  const pageView = createPageView(url, service.id, false, getVisiblePageViews().length < 4);
+  const pageView = createPageView(url, service.id, false, getVisiblePageViews().length < MAX_VISIBLE_TABS);
   pageViews.push(pageView);
   if (pageView.isVisible) selectedViewId = pageView.id;
   updateViewBounds();
@@ -429,8 +438,8 @@ const registerIpcHandlers = (): void => {
     ensureSplitMode();
     if (typeof visible !== 'boolean') throw new Error('タブの表示状態が不正です。');
     const pageView = getPageView(viewId);
-    if (visible && !pageView.isVisible && getVisiblePageViews().length >= 4) {
-      throw new Error('同時に表示できるタブは4つまでです。');
+    if (visible && !pageView.isVisible && getVisiblePageViews().length >= MAX_VISIBLE_TABS) {
+      throw new Error('最大6画面です。別のタブを待機中にしてから表示してください。');
     }
     if (!visible && pageView.isVisible && getVisiblePageViews().length === 1) {
       throw new Error('少なくとも1つのタブを表示してください。');
@@ -441,6 +450,13 @@ const registerIpcHandlers = (): void => {
     updateViewBounds();
     await persistWorkspace();
     return { visibleViewIds: getVisiblePageViews().map(({ id }) => id), selectedViewId: selectedViewId! };
+  });
+  ipcMain.handle(paneLayoutChannels.setScrollOffset, (_event, offset: unknown) => {
+    if (typeof offset !== 'number' || !Number.isFinite(offset) || offset < 0) {
+      throw new Error('スクロール位置が不正です。');
+    }
+    paneScrollOffset = Math.round(offset);
+    if (focusedViewId === null && comparisonLayout === null) updateViewBounds();
   });
   ipcMain.handle(launcherChannels.setOpen, (_event, open: unknown) => {
     if (typeof open !== 'boolean') throw new Error('ランチャーの状態が不正です。');
@@ -571,6 +587,7 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
   isLauncherOpen = false;
   focusedViewId = null;
   comparisonLayout = null;
+  paneScrollOffset = 0;
   isStartupSelectionOpen = showStartupSelection;
   void window.loadFile(path.join(__dirname, '../../dist-renderer/index.html'));
   isRestoringWorkspace = true;

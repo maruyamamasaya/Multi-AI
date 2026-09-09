@@ -53,6 +53,8 @@ Search keywords:
 - `moveView`
 - `focusedViewId`
 - `setFocusMode`
+- `paneLayoutChannels`
+- `MINIMUM_PANE_WIDTH`
 - `setPermissionRequestHandler`
 - `setWindowOpenHandler`
 
@@ -141,6 +143,7 @@ Related tests:
 
 Primary paths:
 - `src/shared/tab-visibility.ts`
+- `src/shared/pane-layout.ts`
 - `src/shared/workspace.ts`
 - `src/main/main.ts`
 - `src/renderer/App.tsx`
@@ -151,6 +154,7 @@ Search keywords:
 - `tabVisibilityChannels`
 - `pane-headers`
 - `tabLabel`
+- `setPaneScrollOffset`
 
 Related tests:
 - `src/shared/workspace.test.ts`

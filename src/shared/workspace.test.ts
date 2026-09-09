@@ -74,7 +74,7 @@ describe('parseWorkspaceSnapshot', () => {
   it('keeps many tabs but restores at most four visible tabs', () => {
     const urls = Array.from({ length: 8 }, (_, index) => `https://example.com/${index}`);
     expect(parseWorkspaceSnapshot({ urls, visibleIndices: [0, 1, 2, 3, 4, 7] }, fallback))
-      .toMatchObject({ viewCount: 8, visibleIndices: [0, 1, 2, 3] });
+      .toMatchObject({ viewCount: 8, visibleIndices: [0, 1, 2, 3, 4, 7] });
   });
 
 });

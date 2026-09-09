@@ -42,4 +42,23 @@ describe('calculateViewBounds', () => {
       { x: 540, y: 250, width: 180, height: 230 },
     ]);
   });
+
+  it('keeps five and six views in a single horizontal row', () => {
+    expect(calculateViewBounds(5, 1201, 700, 126)).toHaveLength(5);
+    expect(calculateViewBounds(6, 1445, 700, 126)).toEqual([
+      { x: 0, y: 126, width: 240, height: 574 },
+      { x: 241, y: 126, width: 240, height: 574 },
+      { x: 482, y: 126, width: 240, height: 574 },
+      { x: 723, y: 126, width: 240, height: 574 },
+      { x: 964, y: 126, width: 240, height: 574 },
+      { x: 1205, y: 126, width: 240, height: 574 },
+    ]);
+  });
+
+  it('uses minimum-width columns and applies horizontal scrolling', () => {
+    expect(calculateViewBounds(6, 720, 480, 278, 240, 300)[0]).toEqual(
+      { x: -300, y: 278, width: 240, height: 202 },
+    );
+    expect(calculateViewBounds(6, 720, 480, 278, 240, 9999).at(-1)?.x).toBe(480);
+  });
 });

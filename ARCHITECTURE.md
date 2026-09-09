@@ -4,13 +4,13 @@
 
 ## System Overview
 
-Electron main processがデスクトップウィンドウと最大32個の独立した `WebContentsView` タブを管理し、そのうち1～4個を同時表示します。上部にはReact rendererの共通操作バー、各表示領域の先頭には28pxの識別ヘッダー、下部にはWebページを表示します。preloadだけがElectron IPCへ接続し、rendererには限定した `window.multiAI` APIを公開します。
+Electron main processがデスクトップウィンドウと最大32個の独立した `WebContentsView` タブを管理し、そのうち1～6個を同時表示します。上部にはReact rendererの共通操作バー、各表示領域の先頭には28pxの識別ヘッダー、下部にはWebページを表示します。preloadだけがElectron IPCへ接続し、rendererには限定した `window.multiAI` APIを公開します。
 
 ```text
 Electron main
   ├─ BrowserWindow
   │    └─ React toolbar ← preload / contextBridge ← navigation IPC
-  ├─ WebContentsView tabs × 1～32（同時表示1～4）
+  ├─ WebContentsView tabs × 1～32（同時表示1～6）
   └─ userData/
        ├─ bookmarks.json
        ├─ named-workspaces.json
@@ -44,10 +44,10 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 ## Main Components
 
 - `createMainWindow`: 安全なwebPreferencesで `BrowserWindow` を生成する。
-- `addView` / `removeView` / `moveView`: 1～4個の外部ビューを追加し、選択中画面を削除し、ビュー単位で左右へ並び替える。
+- `addView` / `removeView` / `moveView`: 1～6個の外部ビューを表示し、選択中画面を削除し、ビュー単位で左右へ並び替える。
 - `updateViewBounds`: 通常時の分割配置と集中表示時の単一ビュー配置・可視性を切り替える。
 - `AI_SERVICES` / `ServiceLauncher`: 対応AIの識別子・表示名・アイコン・URL・判定ホストを一元管理し、画面追加前の選択UIを提供する。
-- `calculateViewBounds`: 画面数に応じて全画面、または2～4画面の等幅縦分割（横一列）を計算する。
+- `calculateViewBounds`: 画面数に応じて全画面、または2～6画面の等幅縦分割（横一列）を計算する。通常表示では各列を最低240pxに保ち、rendererのペイン見出しと共有するスクロール位置をboundsへ反映する。
 - `registerIpcHandlers`: ビューIDを検証し、URL移動と履歴操作を処理する。
 - `parseBookmarks` / `readBookmarks` / `saveBookmarks`: 対応AIの表示名、URL、サービスIDだけをuserData内のJSONへ保存し、旧形式を読み替える。
 - `readWorkspaceSnapshot` / `writeWorkspaceSnapshot`: URL配列と選択位置を保存・復元する。
