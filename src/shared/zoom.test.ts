@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextZoomPercent, parseZoomAction } from './zoom';
+import { DEFAULT_ZOOM_PERCENT, nextZoomPercent, parseZoomAction, parseZoomPercent } from './zoom';
 
 describe('zoom', () => {
   it('moves through fixed levels and clamps to the safe range', () => {
@@ -12,5 +12,11 @@ describe('zoom', () => {
   it('resets to 100 percent and rejects invalid actions', () => {
     expect(nextZoomPercent(67, 'reset')).toBe(100);
     expect(() => parseZoomAction('maximum')).toThrow('Zoom操作が不正です。');
+  });
+
+  it('accepts supported saved levels and defaults invalid values to 80 percent', () => {
+    expect(parseZoomPercent(67)).toBe(67);
+    expect(parseZoomPercent(75)).toBe(DEFAULT_ZOOM_PERCENT);
+    expect(parseZoomPercent(undefined)).toBe(80);
   });
 });

@@ -21,6 +21,7 @@ export interface NamedWorkspaceSummary {
 export interface NamedWorkspaceLoadResult {
   states: NavigationState[];
   selectedViewId: ViewId;
+  zoomPercent: number;
 }
 
 export interface StartupWorkspaceState {

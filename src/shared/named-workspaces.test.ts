@@ -13,7 +13,7 @@ describe('named workspaces', () => {
   it('normalizes names and validates workspace snapshots', () => {
     expect(normalizeWorkspaceName('  調査用  ')).toBe('調査用');
     expect(parseNamedWorkspaceFile({ version: 1, workspaces: [saved] }).workspaces[0]).toMatchObject({
-      id: 'workspace-1', name: '調査用', snapshot: { viewCount: 2, selectedIndex: 1, layout: 'columns' },
+      id: 'workspace-1', name: '調査用', snapshot: { viewCount: 2, selectedIndex: 1, layout: 'columns', zoomPercent: 80 },
     });
   });
 

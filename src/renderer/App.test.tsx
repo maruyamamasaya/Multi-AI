@@ -11,6 +11,7 @@ describe('App', () => {
   afterEach(() => vi.restoreAllMocks());
 
   beforeEach(() => {
+    window.localStorage.clear();
     window.multiAI = {
       addBookmark: vi.fn().mockResolvedValue([]),
       addView: vi.fn().mockResolvedValue([...states, { ...states[0], viewId: 3 }]),
@@ -25,7 +26,7 @@ describe('App', () => {
       getSelectedViewId: vi.fn().mockResolvedValue(1),
       navigate: vi.fn().mockResolvedValue(undefined),
       moveView: vi.fn().mockResolvedValue([states[1], states[0]]),
-      loadNamedWorkspace: vi.fn().mockResolvedValue({ states: [states[1], states[0]], selectedViewId: 2 }),
+      loadNamedWorkspace: vi.fn().mockResolvedValue({ states: [states[1], states[0]], selectedViewId: 2, zoomPercent: 80 }),
       onNavigationState: vi.fn().mockReturnValue(vi.fn()),
       onBookmarkManagerOpenRequested: vi.fn().mockReturnValue(vi.fn()),
       openBookmark: vi.fn().mockResolvedValue(undefined),
@@ -45,7 +46,7 @@ describe('App', () => {
       setPaneScrollOffset: vi.fn().mockResolvedValue(undefined),
       setHeaderCollapsed: vi.fn().mockResolvedValue(undefined),
       changeZoom: vi.fn().mockImplementation(async (action) => action === 'in' ? 110 : action === 'out' ? 90 : 100),
-      startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
+      startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1, zoomPercent: 80 }),
       updateBookmark: vi.fn().mockResolvedValue([]),
     };
   });
@@ -129,6 +130,24 @@ describe('App', () => {
     expect(window.multiAI.changeZoom).toHaveBeenNthCalledWith(1, 'in');
     expect(window.multiAI.changeZoom).toHaveBeenNthCalledWith(2, 'out');
     expect(window.multiAI.changeZoom).toHaveBeenNthCalledWith(3, 'reset');
+  });
+
+  it('shows the zoom restored by a named workspace', async () => {
+    window.multiAI.getStartupWorkspaceState = vi.fn().mockResolvedValue({
+      required: false,
+      workspaces: [{ id: 'saved-1', name: '保存済み', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' }],
+    });
+    window.multiAI.loadNamedWorkspace = vi.fn().mockResolvedValue({
+      states,
+      selectedViewId: 1,
+      zoomPercent: 67,
+    });
+    render(<App />);
+    const workspaceList = await screen.findByLabelText('ワークスペース一覧');
+    await waitFor(() => expect(workspaceList).toHaveTextContent('保存済み'));
+    fireEvent.change(workspaceList, { target: { value: 'saved-1' } });
+    fireEvent.click(screen.getByRole('button', { name: '切り替え' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '全画面を100%に戻す' })).toHaveTextContent('67%'));
   });
 
   it('restores the selected view', async () => {
@@ -600,6 +619,20 @@ describe('App', () => {
     expect(showButton).toHaveAttribute('title', '最大6画面です');
     fireEvent.click(showButton);
     expect(await screen.findByRole('alert')).toHaveTextContent('最大6画面です');
+  });
+
+  it('switches the UI theme and restores it from local storage', () => {
+    const { unmount } = render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'UIテーマ' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Cyber/ }));
+    expect(document.documentElement.dataset.theme).toBe('cyber');
+    expect(window.localStorage.getItem('multi-ai.ui-theme')).toBe('cyber');
+
+    unmount();
+    render(<App />);
+    expect(document.documentElement.dataset.theme).toBe('cyber');
+    fireEvent.click(screen.getByRole('button', { name: 'UIテーマ' }));
+    expect(screen.getByRole('radio', { name: /Cyber/ })).toHaveAttribute('aria-checked', 'true');
   });
 
 });

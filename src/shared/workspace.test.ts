@@ -12,6 +12,7 @@ describe('parseWorkspaceSnapshot', () => {
       visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
+      zoomPercent: 80,
     });
   });
 
@@ -23,6 +24,7 @@ describe('parseWorkspaceSnapshot', () => {
       visibleIndices: [0, 1],
       selectedIndex: 0,
       layout: 'columns',
+      zoomPercent: 80,
     });
   });
 
@@ -34,6 +36,7 @@ describe('parseWorkspaceSnapshot', () => {
       visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
+      zoomPercent: 80,
     });
   });
 
@@ -55,6 +58,7 @@ describe('parseWorkspaceSnapshot', () => {
       visibleIndices: [0, 1, 2],
       selectedIndex: 2,
       layout: 'primary-left',
+      zoomPercent: 80,
     });
   });
 
@@ -69,6 +73,10 @@ describe('parseWorkspaceSnapshot', () => {
         fallback,
       ),
     ).toMatchObject({ serviceIds: ['notebooklm'] });
+  });
+
+  it('restores a supported shared zoom level', () => {
+    expect(parseWorkspaceSnapshot({ urls: ['example.net'], zoomPercent: 125 }, fallback).zoomPercent).toBe(125);
   });
 
   it('keeps many tabs but restores at most four visible tabs', () => {

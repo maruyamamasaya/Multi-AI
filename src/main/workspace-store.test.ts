@@ -29,6 +29,7 @@ describe('workspace store', () => {
       visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
+      zoomPercent: 80,
     });
   });
 
@@ -42,6 +43,7 @@ describe('workspace store', () => {
       visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
+      zoomPercent: 80,
     });
   });
 
@@ -54,6 +56,7 @@ describe('workspace store', () => {
       visibleIndices: [0, 1],
       selectedIndex: 1,
       layout: 'columns' as const,
+      zoomPercent: 90,
     };
     await writeWorkspaceSnapshot(file, snapshot);
     expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(snapshot);

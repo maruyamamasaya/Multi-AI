@@ -1,6 +1,12 @@
 export const ZOOM_LEVELS = [50, 67, 80, 90, 100, 110, 125, 150, 175, 200] as const;
+export const DEFAULT_ZOOM_PERCENT = 80;
 
 export type ZoomAction = 'in' | 'out' | 'reset';
+
+export const parseZoomPercent = (input: unknown): number =>
+  typeof input === 'number' && ZOOM_LEVELS.some((level) => level === input)
+    ? input
+    : DEFAULT_ZOOM_PERCENT;
 
 export const nextZoomPercent = (current: number, action: ZoomAction): number => {
   if (action === 'reset') return 100;

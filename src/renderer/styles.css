@@ -8,7 +8,7 @@ button, input, select { font: inherit; }
 .app-bar.collapsed { height: 0; border: 0; background: transparent; }
 .app-bar.collapsed > :not(.header-toggle) { display: none; }
 .app-bar.collapsed .header-toggle { top: 0; border-radius: 0 0 7px 7px; }
-.workspace-row, .saved-workspace-row, .workspace-save-form, .workspace-library-actions, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .zoom-actions, .bookmark-actions { display: flex; align-items: center; }
+.workspace-row, .saved-workspace-row, .workspace-save-form, .workspace-library-actions, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .zoom-actions, .bookmark-actions, .theme-control { display: flex; align-items: center; }
 .workspace-row { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr) auto; grid-template-rows: 40px 64px; height: 110px; gap: 3px 10px; padding: 3px 14px; }
 .brand { gap: 8px; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: #102018; background: #91d8b5; font-weight: 800; }
@@ -35,6 +35,42 @@ h1 { margin: 0; font-size: .9rem; }
 .zoom-actions { position: relative; gap: 2px; padding: 0 4px; border-inline: 1px solid #303a34; }
 .zoom-actions button { min-width: 28px; height: 30px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26; cursor: pointer; }
 .zoom-actions .zoom-reset { min-width: 50px; padding: 0 5px; color: #b9efd5; font-size: .68rem; font-weight: 750; }
+.theme-control { position: relative; color: #91d8b5; }
+.workspace-row .theme-trigger { display: flex; min-width: 78px; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; cursor: pointer; }
+.theme-trigger span:first-child { color: #91d8b5; font-size: .8rem; }
+.theme-menu { position: absolute; z-index: 50; top: 38px; right: 0; width: 390px; padding: 10px; border: 1px solid #405148; border-radius: 14px; color: #e7ece9; background: #151b17; box-shadow: 0 20px 60px rgb(0 0 0 / 52%); }
+.theme-menu::before { position: absolute; top: -5px; right: 28px; width: 9px; height: 9px; border-top: 1px solid #405148; border-left: 1px solid #405148; content: ""; background: inherit; transform: rotate(45deg); }
+.theme-menu header { display: flex; align-items: center; justify-content: space-between; padding: 4px 5px 10px; }
+.theme-menu header div { display: grid; gap: 2px; }
+.theme-menu header span { color: #789185; font-size: .52rem; font-weight: 800; letter-spacing: .16em; }
+.theme-menu header strong { font-size: .82rem; }
+.workspace-row .theme-menu header button { width: 25px; height: 25px; padding: 0; border: 0; color: #9eaaa3; background: transparent; font-size: 1rem; cursor: pointer; }
+.theme-options { display: grid; gap: 6px; }
+.workspace-row .theme-option { display: grid; grid-template-columns: 66px minmax(0, 1fr) 20px; width: 100%; height: 59px; align-items: center; gap: 10px; padding: 7px; border: 1px solid #303a34; border-radius: 9px; color: #dce4df; background: #1a211d; text-align: left; cursor: pointer; transition: border-color 140ms ease, background 140ms ease, transform 140ms ease; }
+.workspace-row .theme-option:hover, .workspace-row .theme-option:focus-visible { border-color: #638471; outline: none; background: #202a24; transform: translateX(2px); }
+.workspace-row .theme-option[aria-checked="true"] { border-color: #91d8b5; background: #203128; box-shadow: inset 3px 0 #91d8b5; }
+.theme-preview { position: relative; display: block; width: 64px; height: 43px; overflow: hidden; border: 1px solid #39463f; border-radius: 5px; background: #111512; box-shadow: inset 0 0 0 2px #1f2823; }
+.theme-preview i { position: absolute; top: 5px; bottom: 5px; width: 13px; border-radius: 2px; background: #242e28; }
+.theme-preview i:nth-child(1) { left: 5px; }
+.theme-preview i:nth-child(2) { left: 21px; }
+.theme-preview i:nth-child(3) { left: 37px; }
+.theme-preview b { position: absolute; right: 3px; bottom: 2px; display: grid; width: 19px; height: 17px; place-items: center; border-radius: 3px; color: #102018; background: #91d8b5; font-size: .48rem; }
+.theme-copy { display: grid; min-width: 0; gap: 3px; }
+.theme-copy strong { font-size: .72rem; }
+.theme-copy small { overflow: hidden; color: #89958e; font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
+.theme-check { color: #91d8b5; font-size: .78rem; font-weight: 800; text-align: center; }
+.theme-preview-terminal .theme-preview { border-radius: 1px; border-color: #168c37; background: #020603; }
+.theme-preview-terminal .theme-preview i { border-radius: 0; background: #0b2712; }
+.theme-preview-terminal .theme-preview b { border-radius: 0; color: #5dff79; background: transparent; }
+.theme-preview-cyber .theme-preview { border-color: #5147a0; background: linear-gradient(135deg, #080821, #19134a); box-shadow: inset 0 0 12px rgb(0 231 255 / 18%); }
+.theme-preview-cyber .theme-preview i { background: linear-gradient(#00e7ff, #7c5cff); }
+.theme-preview-cyber .theme-preview b { color: #080721; background: #00e7ff; box-shadow: 0 0 7px #00e7ff; }
+.theme-preview-windows-98 .theme-preview { border: 2px outset #fff; border-radius: 0; background: #c0c0c0; box-shadow: none; }
+.theme-preview-windows-98 .theme-preview i { border: 1px outset #fff; border-radius: 0; background: #000080; }
+.theme-preview-windows-98 .theme-preview b { border: 1px outset #fff; border-radius: 0; color: #000; background: #c0c0c0; }
+.theme-preview-retro-pc .theme-preview { border-color: #7a4b14; border-radius: 3px; background: #100a02; box-shadow: inset 0 0 10px rgb(255 177 59 / 18%); }
+.theme-preview-retro-pc .theme-preview i { background: #392407; }
+.theme-preview-retro-pc .theme-preview b { color: #ffb13b; background: transparent; text-shadow: 0 0 5px #ffb13b; }
 .zoom-error { position: absolute; z-index: 2; top: 34px; right: 0; width: max-content; max-width: 220px; padding: 4px 7px; border-radius: 6px; color: #ffd1ce; background: #5b2926; font-size: .62rem; }
 .tab-error { position: fixed; z-index: 15; top: 56px; left: 14px; padding: 5px 8px; border-radius: 6px; color: #ffd1ce; background: #5b2926; font-size: .65rem; }
 .reorder-actions { gap: 2px; padding: 0 3px; border-inline: 1px solid #303a34; }
@@ -179,3 +215,87 @@ button:disabled { opacity: .35; cursor: default; }
 .bookmark-delete-confirm > div > div { display: flex; justify-content: flex-end; gap: 7px; }
 .bookmark-delete-confirm button { height: 32px; padding: 0 12px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26; cursor: pointer; }
 @media (max-width: 760px) { .bookmark-manager-filters { align-items: stretch; flex-direction: column; } .bookmark-count { padding: 0; } .bookmark-edit-card { grid-template-columns: 1fr; } }
+
+/* Theme overrides intentionally affect only Multi-AI chrome, never embedded AI pages. */
+:root[data-theme="terminal"] { color: #b6ffb6; background: #020603; font-family: Consolas, "Courier New", monospace; }
+:root[data-theme="terminal"] .app-bar,
+:root[data-theme="terminal"] .service-launcher,
+:root[data-theme="terminal"] .startup-selector,
+:root[data-theme="terminal"] .bookmark-manager-header { border-color: #168c37; background: #030a05; box-shadow: none; }
+:root[data-theme="terminal"] .view-tab,
+:root[data-theme="terminal"] .workspace-row button,
+:root[data-theme="terminal"] .saved-workspace-row :is(input, select, button),
+:root[data-theme="terminal"] .bookmark-actions select,
+:root[data-theme="terminal"] .theme-control select,
+:root[data-theme="terminal"] .comparison-target,
+:root[data-theme="terminal"] .prompt-targets label,
+:root[data-theme="terminal"] .service-grid button { border-color: #168c37; border-radius: 2px; color: #71ff8c; background: #061209; }
+:root[data-theme="terminal"] :is(.view-tab.active, .service-grid button:hover, .service-grid button:focus-visible, .pane-header.drop-target) { border-color: #5dff79; color: #c8ffd1; background: #0b2712; box-shadow: inset 0 0 0 1px #168c37; }
+:root[data-theme="terminal"] :is(.brand-mark, .prompt-send-button, .navigation-bar .primary-button, .focus-button[aria-pressed="true"]) { border-radius: 1px; color: #001904; background: #5dff79; }
+:root[data-theme="terminal"] :is(.common-prompt-row textarea, .url-field input, .bookmark-manager-filters input, .bookmark-manager-filters select, .bookmark-edit-card input) { border-color: #168c37; border-radius: 1px; color: #b6ffb6; background: #010402; caret-color: #5dff79; }
+:root[data-theme="terminal"] :is(.pane-headers, .bookmark-manager) { color: #b6ffb6; background: #020603; }
+:root[data-theme="terminal"] .pane-header { color: #a8ffb5; background: #061209; }
+:root[data-theme="terminal"] :is(.pane-url, .answer-status, .launcher-heading p, .startup-description) { color: #52aa63; }
+
+:root[data-theme="cyber"] { color: #e8f7ff; background: #05051a; font-family: "Segoe UI", Inter, sans-serif; }
+:root[data-theme="cyber"] .app-bar,
+:root[data-theme="cyber"] .service-launcher,
+:root[data-theme="cyber"] .startup-selector,
+:root[data-theme="cyber"] .bookmark-manager-header { border-color: #7c5cff; background: linear-gradient(135deg, #0a0b2b, #15103d); box-shadow: inset 0 -1px #00e7ff; }
+:root[data-theme="cyber"] .view-tab,
+:root[data-theme="cyber"] .workspace-row button,
+:root[data-theme="cyber"] .saved-workspace-row :is(input, select, button),
+:root[data-theme="cyber"] .bookmark-actions select,
+:root[data-theme="cyber"] .theme-control select,
+:root[data-theme="cyber"] .comparison-target,
+:root[data-theme="cyber"] .prompt-targets label,
+:root[data-theme="cyber"] .service-grid button { border-color: #5d53aa; color: #dceaff; background: #151440; box-shadow: inset 0 0 8px rgb(0 231 255 / 8%); }
+:root[data-theme="cyber"] :is(.view-tab.active, .service-grid button:hover, .service-grid button:focus-visible, .pane-header.drop-target) { border-color: #00e7ff; color: #8ff7ff; background: #211a58; box-shadow: 0 0 9px rgb(0 231 255 / 35%); }
+:root[data-theme="cyber"] :is(.brand-mark, .prompt-send-button, .navigation-bar .primary-button, .focus-button[aria-pressed="true"]) { color: #080721; background: linear-gradient(135deg, #00e7ff, #b36cff); box-shadow: 0 0 10px rgb(0 231 255 / 45%); }
+:root[data-theme="cyber"] :is(.common-prompt-row textarea, .url-field input, .bookmark-manager-filters input, .bookmark-manager-filters select, .bookmark-edit-card input) { border-color: #5d53aa; color: #e8f7ff; background: #080821; }
+:root[data-theme="cyber"] :is(.pane-headers, .bookmark-manager) { color: #e8f7ff; background: #070719; }
+:root[data-theme="cyber"] .pane-header { color: #dceaff; background: #111038; }
+:root[data-theme="cyber"] :is(.pane-url, .answer-status, .launcher-heading p, .startup-description) { color: #8fa6c9; }
+
+:root[data-theme="windows-98"] { color: #000; background: #008080; font-family: Tahoma, "MS Sans Serif", sans-serif; }
+:root[data-theme="windows-98"] .app-bar,
+:root[data-theme="windows-98"] .service-launcher,
+:root[data-theme="windows-98"] .startup-selector,
+:root[data-theme="windows-98"] .bookmark-manager-header { border: 2px outset #fff; border-radius: 0; color: #000; background: #c0c0c0; box-shadow: none; }
+:root[data-theme="windows-98"] .view-tab,
+:root[data-theme="windows-98"] .workspace-row button,
+:root[data-theme="windows-98"] .saved-workspace-row :is(input, select, button),
+:root[data-theme="windows-98"] .bookmark-actions select,
+:root[data-theme="windows-98"] .theme-control select,
+:root[data-theme="windows-98"] .comparison-target,
+:root[data-theme="windows-98"] .prompt-targets label,
+:root[data-theme="windows-98"] .service-grid button { border: 2px outset #fff; border-radius: 0; color: #000; background: #c0c0c0; box-shadow: none; }
+:root[data-theme="windows-98"] .workspace-row button:active:not(:disabled),
+:root[data-theme="windows-98"] .service-grid button:active { border-style: inset; }
+:root[data-theme="windows-98"] :is(.view-tab.active, .service-grid button:hover, .service-grid button:focus-visible, .pane-header.drop-target) { border-color: #fff; color: #fff; background: #000080; box-shadow: none; }
+:root[data-theme="windows-98"] :is(.brand-mark, .prompt-send-button, .navigation-bar .primary-button, .focus-button[aria-pressed="true"]) { border: 2px outset #fff; border-radius: 0; color: #fff; background: #000080; }
+:root[data-theme="windows-98"] :is(.common-prompt-row textarea, .url-field input, .bookmark-manager-filters input, .bookmark-manager-filters select, .bookmark-edit-card input) { border: 2px inset #fff; border-radius: 0; color: #000; background: #fff; }
+:root[data-theme="windows-98"] :is(.pane-headers, .bookmark-manager) { color: #000; background: #c0c0c0; }
+:root[data-theme="windows-98"] .pane-header { border-right: 1px solid #808080; color: #fff; background: #000080; }
+:root[data-theme="windows-98"] :is(.pane-url, .answer-status, .launcher-heading p, .startup-description) { color: inherit; }
+
+:root[data-theme="retro-pc"] { color: #ffd77a; background: #100a02; font-family: "Courier New", ui-monospace, monospace; }
+:root[data-theme="retro-pc"] .app-bar,
+:root[data-theme="retro-pc"] .service-launcher,
+:root[data-theme="retro-pc"] .startup-selector,
+:root[data-theme="retro-pc"] .bookmark-manager-header { border-color: #9b5f17; background: #171005; box-shadow: inset 0 0 28px rgb(255 166 48 / 6%); }
+:root[data-theme="retro-pc"] .view-tab,
+:root[data-theme="retro-pc"] .workspace-row button,
+:root[data-theme="retro-pc"] .saved-workspace-row :is(input, select, button),
+:root[data-theme="retro-pc"] .bookmark-actions select,
+:root[data-theme="retro-pc"] .theme-control select,
+:root[data-theme="retro-pc"] .comparison-target,
+:root[data-theme="retro-pc"] .prompt-targets label,
+:root[data-theme="retro-pc"] .service-grid button { border-color: #7a4b14; border-radius: 3px; color: #ffd77a; background: #211506; }
+:root[data-theme="retro-pc"] :is(.view-tab.active, .service-grid button:hover, .service-grid button:focus-visible, .pane-header.drop-target) { border-color: #ffb13b; color: #ffe5a6; background: #392407; box-shadow: inset 0 0 10px rgb(255 177 59 / 16%); }
+:root[data-theme="retro-pc"] :is(.brand-mark, .prompt-send-button, .navigation-bar .primary-button, .focus-button[aria-pressed="true"]) { border-radius: 3px; color: #1b0d00; background: #ffb13b; text-shadow: none; }
+:root[data-theme="retro-pc"] :is(.common-prompt-row textarea, .url-field input, .bookmark-manager-filters input, .bookmark-manager-filters select, .bookmark-edit-card input) { border-color: #7a4b14; border-radius: 2px; color: #ffd77a; background: #0d0801; caret-color: #ffb13b; }
+:root[data-theme="retro-pc"] :is(.pane-headers, .bookmark-manager) { color: #ffd77a; background: #100a02; }
+:root[data-theme="retro-pc"] .pane-header { color: #ffd77a; background: #211506; }
+:root[data-theme="retro-pc"] :is(.pane-url, .answer-status, .launcher-heading p, .startup-description) { color: #b47d35; }
+:root[data-theme="retro-pc"] .app-bar::after { position: fixed; z-index: 40; inset: 0; pointer-events: none; content: ""; background: repeating-linear-gradient(0deg, transparent 0 2px, rgb(45 20 0 / 12%) 2px 3px); }

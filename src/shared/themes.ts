@@ -1,9 +1,9 @@
 export const UI_THEMES = [
-  { id: 'default', name: 'デフォルト', description: '現在の落ち着いたダークテーマ' },
-  { id: 'terminal', name: 'Terminal', description: '黒と蛍光グリーンの端末風' },
-  { id: 'cyber', name: 'Cyber / Electronic', description: 'ネオンが光る近未来の操作盤' },
-  { id: 'windows-98', name: 'Windows 98', description: 'クラシックなデスクトップUI' },
-  { id: 'retro-pc', name: 'Retro PC', description: '琥珀色CRTモニター風' },
+  { id: 'default', name: 'Default', description: '静かで集中しやすい、現在のMulti-AI', glyph: 'M' },
+  { id: 'terminal', name: 'Terminal', description: '黒とフォスファーグリーンの開発端末', glyph: '>_' },
+  { id: 'cyber', name: 'Cyber', description: 'シアンとバイオレットの電子制御盤', glyph: '◇' },
+  { id: 'windows-98', name: 'Windows 98', description: 'クラシックなデスクトップ環境', glyph: '▦' },
+  { id: 'retro-pc', name: 'Retro PC', description: '琥珀色に発光するCRTワークステーション', glyph: '●' },
 ] as const;
 
 export type UiThemeId = (typeof UI_THEMES)[number]['id'];

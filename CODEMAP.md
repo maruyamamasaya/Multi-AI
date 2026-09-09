@@ -314,6 +314,27 @@ Related tests:
 - `src/renderer/App.test.tsx`
 - `src/shared/navigation.test.ts`
 
+## UI Themes
+
+Primary paths:
+- `src/shared/themes.ts`
+- `src/renderer/App.tsx`
+- `src/renderer/styles.css`
+
+Search keywords:
+- `UI_THEMES`
+- `UI_THEME_STORAGE_KEY`
+- `data-theme`
+- `theme-control`
+
+Key entry points:
+- theme selector in `App`
+- theme-specific CSS overrides in `styles.css`
+
+Related tests:
+- `src/shared/themes.test.ts`
+- `src/renderer/App.test.tsx`
+
 ## Build and Validation
 
 Primary paths:

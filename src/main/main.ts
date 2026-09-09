@@ -27,7 +27,7 @@ import {
   type ViewId,
 } from '../shared/navigation';
 import { normalizePrompt, parsePromptTargets, promptChannels, type PromptSendResult } from '../shared/prompt';
-import { nextZoomPercent, parseZoomAction, zoomChannels } from '../shared/zoom';
+import { DEFAULT_ZOOM_PERCENT, nextZoomPercent, parseZoomAction, zoomChannels } from '../shared/zoom';
 import { tabVisibilityChannels, type TabVisibilityResult } from '../shared/tab-visibility';
 import { COLLAPSED_HEADER_HEIGHT, EXPANDED_HEADER_HEIGHT, headerLayoutChannels } from '../shared/header-layout';
 import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH, paneLayoutChannels } from '../shared/pane-layout';
@@ -66,7 +66,7 @@ let isLauncherOpen = false;
 let focusedViewId: ViewId | null = null;
 let isStartupSelectionOpen = false;
 let comparisonLayout: (ComparisonLayoutState & { candidateViewIds: ViewId[] }) | null = null;
-let zoomPercent = 100;
+let zoomPercent = DEFAULT_ZOOM_PERCENT;
 let zoomWriteQueue = Promise.resolve();
 let paneScrollOffset = 0;
 let isHeaderCollapsed = false;
@@ -112,6 +112,7 @@ const captureWorkspace = (): WorkspaceSnapshot => ({
     visibleIndices: pageViews.flatMap(({ isVisible }, index) => isVisible ? [index] : []),
     selectedIndex: Math.max(0, pageViews.findIndex(({ id }) => id === selectedViewId)),
     layout: workspaceLayoutForViewCount(pageViews.length),
+    zoomPercent,
 });
 
 const persistWorkspace = (): Promise<void> => {
@@ -177,6 +178,7 @@ const replaceWorkspace = async (snapshot: WorkspaceSnapshot): Promise<NamedWorks
   if (isLauncherOpen) throw new Error('ランチャーを閉じてからワークスペースを切り替えてください。');
   isRestoringWorkspace = true;
   try {
+    zoomPercent = snapshot.zoomPercent;
     pageViews.forEach(({ view }) => {
       mainWindow?.contentView.removeChildView(view);
       view.webContents.close();
@@ -195,7 +197,7 @@ const replaceWorkspace = async (snapshot: WorkspaceSnapshot): Promise<NamedWorks
     isRestoringWorkspace = false;
   }
   await persistWorkspace();
-  return { states: getNavigationStates(), selectedViewId: selectedViewId! };
+  return { states: getNavigationStates(), selectedViewId: selectedViewId!, zoomPercent };
 };
 
 const createPageView = (
@@ -368,6 +370,7 @@ const registerIpcHandlers = (): void => {
       zoomPercent = nextZoomPercent(zoomPercent, action);
       appliedZoom = zoomPercent;
       await applyZoomToAllViews();
+      await persistWorkspace();
     });
     await zoomWriteQueue;
     return appliedZoom;
@@ -619,7 +622,7 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
     },
   });
   mainWindow = window;
-  zoomPercent = 100;
+  zoomPercent = workspace.zoomPercent;
   isLauncherOpen = false;
   isBookmarkManagerOpen = false;
   focusedViewId = null;

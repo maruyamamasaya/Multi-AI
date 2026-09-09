@@ -10,7 +10,7 @@ import type { Bookmark, BookmarkUpdate } from '../shared/bookmarks';
 import type { NamedWorkspaceSummary } from '../shared/named-workspaces';
 import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
-import type { ZoomAction } from '../shared/zoom';
+import { DEFAULT_ZOOM_PERCENT, type ZoomAction } from '../shared/zoom';
 import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH } from '../shared/pane-layout';
 import { ja } from '../shared/locales/ja';
 import { parseUiTheme, UI_THEMES, UI_THEME_STORAGE_KEY, type UiThemeId } from '../shared/themes';
@@ -143,6 +143,7 @@ export const App = () => {
       return 'default';
     }
   });
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [states, setStates] = useState(initialStates);
   const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
   const [selectedViewId, setSelectedViewId] = useState<ViewId>(1);
@@ -171,7 +172,7 @@ export const App = () => {
   const [comparisonTargets, setComparisonTargets] = useState<Set<ViewId>>(new Set());
   const [comparisonFocusedViewId, setComparisonFocusedViewId] = useState<ViewId | null>(null);
   const [comparisonError, setComparisonError] = useState('');
-  const [zoomPercent, setZoomPercent] = useState(100);
+  const [zoomPercent, setZoomPercent] = useState(DEFAULT_ZOOM_PERCENT);
   const [zoomError, setZoomError] = useState('');
   const [tabError, setTabError] = useState('');
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
@@ -239,6 +240,7 @@ export const App = () => {
           const result = await window.multiAI.startWorkspace({ kind: 'last' });
           setStates(result.states);
           setSelectedViewId(result.selectedViewId);
+          setZoomPercent(result.zoomPercent);
         } catch {
           setStartupError('起動ワークスペースを確認できませんでした。');
         }
@@ -450,6 +452,7 @@ export const App = () => {
       const result = await window.multiAI.loadNamedWorkspace(savedWorkspaceId);
       setStates(result.states);
       setSelectedViewId(result.selectedViewId);
+      setZoomPercent(result.zoomPercent);
     } catch (reason) {
       setWorkspaceError(reason instanceof Error ? reason.message : 'ワークスペースを切り替えられませんでした。');
     }
@@ -474,6 +477,7 @@ export const App = () => {
       const result = await window.multiAI.startWorkspace(selection);
       setStates(result.states);
       setSelectedViewId(result.selectedViewId);
+      setZoomPercent(result.zoomPercent);
       setIsStartupSelectionOpen(false);
     } catch (reason) {
       setStartupError(reason instanceof Error ? reason.message : 'ワークスペースを開始できませんでした。');
@@ -667,13 +671,38 @@ export const App = () => {
           <button aria-label="全画面を拡大" title={ja.zoom.in} disabled={zoomPercent >= 200} onClick={() => void changeZoom('in')}>＋</button>
           {zoomError ? <span className="zoom-error" role="alert">{zoomError}</span> : null}
         </div>
-        <label className="theme-control" title="UIテーマを切り替える">
-          <span aria-hidden="true">◈</span>
-          <span className="sr-only">UIテーマ</span>
-          <select aria-label="UIテーマ" value={uiTheme} onChange={(event) => setUiTheme(parseUiTheme(event.target.value))}>
-            {UI_THEMES.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
-          </select>
-        </label>
+        <div className="theme-control">
+          <button
+            type="button"
+            className="theme-trigger"
+            aria-label="UIテーマ"
+            aria-expanded={isThemeMenuOpen}
+            aria-haspopup="dialog"
+            title="UIテーマを切り替える"
+            onClick={() => setIsThemeMenuOpen((open) => !open)}
+          ><span aria-hidden="true">◈</span><span>Theme</span></button>
+          {isThemeMenuOpen ? (
+            <section className="theme-menu" role="dialog" aria-label="UIテーマを選択">
+              <header><div><span>APPEARANCE</span><strong>テーマを選択</strong></div><button type="button" aria-label="テーマ選択を閉じる" onClick={() => setIsThemeMenuOpen(false)}>×</button></header>
+              <div className="theme-options" role="radiogroup" aria-label="利用可能なUIテーマ">
+                {UI_THEMES.map((theme) => (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={uiTheme === theme.id}
+                    className={`theme-option theme-preview-${theme.id}`}
+                    key={theme.id}
+                    onClick={() => { setUiTheme(theme.id); setIsThemeMenuOpen(false); }}
+                  >
+                    <span className="theme-preview" aria-hidden="true"><i /><i /><i /><b>{theme.glyph}</b></span>
+                    <span className="theme-copy"><strong>{theme.name}</strong><small>{theme.description}</small></span>
+                    <span className="theme-check" aria-hidden="true">{uiTheme === theme.id ? '✓' : ''}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
         {isFocusMode ? <span className="focus-status" role="status">集中表示中</span> : null}
         <div className="bookmark-actions">
           <button aria-label="現在のAI会話を保存" title={selectedBookmarkService ? '現在のAI会話を保存' : '対応AIサービスのページだけ保存できます'} disabled={!selectedBookmarkService || isComparisonMode} onClick={() => void addBookmark()}>☆</button>

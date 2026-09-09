@@ -59,10 +59,13 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 - comparison layout state: 共通送信結果のビューだけを対象に、一時的な均等配置・除外・集中表示を管理する。
 - preload: `contextBridge`で型付きの限定ナビゲーションAPIを公開する。
 - `App` / `ViewToolbar`: 各ビューのURL、履歴ボタン、読み込み状態を表示する。
+- `UI_THEMES` / theme CSS layer: 検証済みテーマIDをrendererの`localStorage`へ保存し、document rootの`data-theme`でMulti-AIの操作UIだけを切り替える。
 
 ## Data Flow
 
-mainは起動時に `workspace.json` を検証して画面数、URL、選択位置、分割レイアウトを復元します。追加・削除・URL移動・選択変更と終了時に最新snapshotを書き込みます。保存データがない、壊れている、危険なURLを含む場合は安全な既定の1画面へ戻します。全ビューを管理配列へ登録して選択状態と配置を確定してからURLロードを開始し、復元中のロードイベントが未初期化状態を参照しないようにします。
+UIテーマはワークスペースや外部Webセッションから独立したrenderer表示設定です。起動時に保存済みIDを許可リストで検証し、不明な値は既存のデフォルトテーマへ戻します。切替時は`data-theme`属性と`localStorage`だけを更新するため、`WebContentsView`のURL、Cookie、配置、操作状態には影響しません。
+
+mainは起動時に `workspace.json` を検証して画面数、URL、選択位置、分割レイアウト、共通Zoomを復元します。追加・削除・URL移動・選択変更・Zoom変更と終了時に最新snapshotを書き込みます。Zoom未保存の旧データや不正な倍率は既定の80%で補い、保存データがない、壊れている、危険なURLを含む場合は安全な既定の1画面へ戻します。全ビューを管理配列へ登録して選択状態と配置を確定してからURLロードを開始し、復元中のロードイベントが未初期化状態を参照しないようにします。
 
 並び替えは上部の左右ボタンまたは各表示領域ヘッダーのドラッグ＆ドロップを入口とし、`PageView` オブジェクトを配列内で交換してから全ビューのboundsを再計算します。WebContents、URL、サービスID、履歴は同じオブジェクトに残り、選択状態はビューIDで維持されます。交換後の配列順と選択位置をworkspaceへ保存します。
 
@@ -84,7 +87,7 @@ AI会話管理はrenderer内の専用全画面ダイアログとして通常ワ�
 
 回答比較v1は回答DOMを読まず、直前の共通送信結果とビューIDだけをrendererに保持します。mainは候補IDを比較開始時に固定し、対象中のWebContentsだけを2～4画面の等幅縦分割（横一列）へbounds再配置します。除外ビューは破棄せず非表示にし、再追加時に同じWebContentsを戻します。比較内集中表示は比較対象1画面だけを全面へ広げ、解除すると比較対象の配置へ戻します。比較終了時は一時状態を破棄して通常の全ビュー配列からboundsを復元し、workspaceへは保存しません。比較中は通常の追加・削除・並び替え・選択・集中表示・ナビゲーション・保存操作を抑止します。
 
-共通Zoomはmain processの一時状態として倍率を1つだけ保持し、通常表示・比較表示・集中表示を問わず全外部WebContentsへ直接適用します。新規画面やワークスペース切替で生成される画面は作成直後に現在倍率を引き継ぎます。ページの再読込やWebContentsの再生成は行わず、倍率はworkspaceへ保存しません。
+共通Zoomはmain processで倍率を1つだけ保持し、通常表示・比較表示・集中表示を問わず全外部WebContentsへ直接適用します。新規画面やワークスペース切替で生成される画面は作成直後に現在倍率を引き継ぎます。ページの再読込は行わず、倍率は通常および名前付きworkspaceのsnapshotへ保存します。初回の既定倍率は80%で、100%リセット操作は原寸へ戻します。
 
 ## API / Database / Authentication
 
@@ -94,7 +97,7 @@ AI会話管理はrenderer内の専用全画面ダイアログとして通常ワ�
 - Environment Variables: なし
 - External Services: ChatGPT、Claude、Gemini、Perplexity、Grok、Microsoft Copilot、NotebookLM。正確なURLは `src/shared/ai-services.ts` を正本とする
 - Local Data: Electron `userData/bookmarks.json` に対応AIの会話ブックマーク（表示名、URL、AIサービスID、新規データでは保存日時）だけを保存
-- Workspace Data: Electron `userData/workspace.json` に画面数、URL配列、サービスID配列、選択インデックス、分割レイアウトを保存
+- Workspace Data: Electron `userData/workspace.json` に画面数、URL配列、サービスID配列、選択インデックス、分割レイアウト、共通Zoomを保存
 - Named Workspace Data: Electron `userData/named-workspaces.json` にバージョン付きの名前、ID、日時、ワークスペースsnapshot一覧を保存
 
 ## Build and Deployment

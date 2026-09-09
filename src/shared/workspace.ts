@@ -1,6 +1,7 @@
 import { normalizeNavigationUrl, type ViewId } from './navigation';
 import { getAiService, getAiServiceByUrl, type AiServiceId } from './ai-services';
 import { MAX_VISIBLE_TABS } from './pane-layout';
+import { DEFAULT_ZOOM_PERCENT, parseZoomPercent } from './zoom';
 
 export interface WorkspaceSnapshot {
   viewCount: number;
@@ -9,6 +10,7 @@ export interface WorkspaceSnapshot {
   visibleIndices: number[];
   selectedIndex: number;
   layout: WorkspaceLayout;
+  zoomPercent: number;
 }
 
 export type WorkspaceLayout = 'single' | 'columns' | 'primary-left' | 'grid';
@@ -36,6 +38,7 @@ export const parseWorkspaceSnapshot = (
     visibleIndices: fallbackUrls.slice(0, MAX_VISIBLE_TABS).map((_, index) => index),
     selectedIndex: 0,
     layout: workspaceLayoutForViewCount(fallbackUrls.length),
+    zoomPercent: DEFAULT_ZOOM_PERCENT,
   };
   if (!input || typeof input !== 'object') return fallback;
 
@@ -73,6 +76,7 @@ export const parseWorkspaceSnapshot = (
       visibleIndices,
       selectedIndex,
       layout: workspaceLayoutForViewCount(viewCount),
+      zoomPercent: parseZoomPercent(candidate.zoomPercent),
     };
   } catch {
     return fallback;
