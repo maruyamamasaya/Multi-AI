@@ -154,6 +154,8 @@ Search keywords:
 - `tabVisibilityChannels`
 - `pane-headers`
 - `pane-actions`
+- `reorderPane`
+- `draggedPaneId`
 - `tabLabel`
 - `setPaneScrollOffset`
 

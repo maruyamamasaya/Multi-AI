@@ -2,32 +2,32 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 720px; min-height: 100vh; }
 button, input, select { font: inherit; }
-.app-bar { height: 250px; border-bottom: 1px solid #303a34; background: #171d19; }
-.header-toggle { position: fixed; z-index: 20; top: 250px; right: 8px; height: 28px; padding: 0 10px; border: 1px solid #65746c; border-radius: 0 0 7px 7px; color: #e7ece9; background: #26312b; font-size: .68rem; font-weight: 700; cursor: pointer; }
+.app-bar { height: 302px; border-bottom: 1px solid #303a34; background: #171d19; }
+.header-toggle { position: fixed; z-index: 20; top: 302px; right: 8px; height: 28px; padding: 0 10px; border: 1px solid #65746c; border-radius: 0 0 7px 7px; color: #e7ece9; background: #26312b; font-size: .68rem; font-weight: 700; cursor: pointer; }
 .header-toggle:hover, .header-toggle:focus-visible { border-color: #91d8b5; outline: none; background: #304138; }
 .app-bar.collapsed { height: 0; border: 0; background: transparent; }
 .app-bar.collapsed > :not(.header-toggle) { display: none; }
 .app-bar.collapsed .header-toggle { top: 0; border-radius: 0 0 7px 7px; }
 .workspace-row, .saved-workspace-row, .workspace-save-form, .workspace-library-actions, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .zoom-actions, .bookmark-actions { display: flex; align-items: center; }
-.workspace-row { height: 58px; gap: 14px; padding: 0 14px; }
+.workspace-row { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr) auto; grid-template-rows: 40px 64px; height: 110px; gap: 3px 10px; padding: 3px 14px; }
 .brand { gap: 8px; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: #102018; background: #91d8b5; font-weight: 800; }
 h1 { margin: 0; font-size: .9rem; }
-.view-tabs { flex: 1; gap: 4px; overflow-x: auto; }
+.view-tabs { display: flex; grid-column: 1 / -1; grid-row: 2; align-content: flex-start; gap: 3px; overflow-x: hidden; overflow-y: auto; flex-wrap: wrap; }
 .view-tabs button, .workspace-actions button, .bookmark-actions button, .bookmark-actions select, .navigation-bar > button {
   height: 30px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26;
 }
-.view-tab { display: flex; min-width: 178px; align-items: center; border: 1px solid #3a463f; border-radius: 7px; background: #222b26; }
+.view-tab { display: flex; width: 68px; height: 29px; flex: 0 0 68px; align-items: center; border: 1px solid #3a463f; border-radius: 7px; background: #222b26; }
 .view-tab.hidden { border-style: dashed; opacity: .68; background: #1b211d; }
 .view-tab.active { border-color: #91d8b5; color: #b9efd5; background: #26382e; }
 .view-tabs .view-tab > button { border: 0; background: transparent; }
-.view-tabs .view-tab > button:first-child { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; padding: 0 4px 0 6px; cursor: pointer; }
+.view-tabs .view-tab > button:first-child { position: relative; display: grid; width: 30px; min-width: 30px; padding: 0; place-items: center; cursor: pointer; }
 .view-tabs .view-tab .tab-visibility, .view-tabs .view-tab .tab-close { padding: 0; color: #9eaaa3; font-size: .64rem; cursor: pointer; }
-.view-tabs .view-tab .tab-visibility { display: flex; width: 49px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 2px; color: #a9d9c1; }
+.view-tabs .view-tab .tab-visibility { display: grid; width: 19px; flex: 0 0 19px; place-items: center; color: #a9d9c1; }
 .view-tabs .view-tab.hidden .tab-visibility { color: #aeb5b1; }
 .view-tabs .view-tab .tab-close { font-size: .85rem; }
-.view-tabs .view-tab .tab-close { width: 20px; }
-.view-number { display: grid; width: 18px; height: 18px; flex: 0 0 auto; place-items: center; border-radius: 5px; color: #849189; background: #161c18; font-size: .62rem; font-weight: 750; }
+.view-tabs .view-tab .tab-close { width: 17px; flex: 0 0 17px; }
+.view-number { position: absolute; z-index: 1; right: 0; bottom: 1px; display: grid; min-width: 11px; height: 11px; padding: 0 2px; place-items: center; border-radius: 4px; color: #cdd6d1; background: #161c18; font-size: .48rem; font-weight: 800; }
 .view-tab.active .view-number { color: #b9efd5; background: #1d2b23; }
 .view-service-icon { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border-radius: 6px; color: #102018; background: #91d8b5; font-size: .56rem; font-weight: 850; }
 .view-service-name { overflow: hidden; max-width: 112px; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; font-weight: 650; }
@@ -86,9 +86,12 @@ button:disabled { opacity: .35; cursor: default; }
 .comparison-error { position: absolute; left: 14px; bottom: 2px; font-size: .6rem; }
 .bookmark-actions select { width: 190px; padding: 0 6px; }
 .navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }
-.pane-headers { position: fixed; z-index: 5; top: 250px; right: 0; left: 0; height: 28px; overflow-x: auto; overflow-y: hidden; background: #303a34; scrollbar-width: thin; scrollbar-color: #65746c #202722; }
+.pane-headers { position: fixed; z-index: 5; top: 302px; right: 0; left: 0; height: 28px; overflow-x: auto; overflow-y: hidden; background: #303a34; scrollbar-width: thin; scrollbar-color: #65746c #202722; }
 .pane-headers-track { display: grid; grid-template-columns: repeat(var(--pane-count), minmax(var(--minimum-pane-width), 1fr)); width: max(100%, calc(var(--pane-count) * var(--minimum-pane-width) + (var(--pane-count) - 1) * 1px)); min-height: 22px; gap: 1px; }
 .pane-header { display: flex; min-width: 0; align-items: center; gap: 5px; padding: 3px 5px 3px 7px; color: #cdd6d1; background: #1b221e; font-size: .68rem; }
+.pane-header[draggable="true"] { cursor: grab; }
+.pane-header.dragging { opacity: .45; cursor: grabbing; }
+.pane-header.drop-target { box-shadow: inset 3px 0 #91d8b5; background: #26382e; }
 .pane-title { overflow: hidden; max-width: 82px; flex: 0 1 auto; text-overflow: ellipsis; white-space: nowrap; }
 .pane-url { overflow: hidden; min-width: 28px; flex: 1; color: #89958e; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
 .pane-header .view-service-icon { width: 18px; height: 18px; font-size: .48rem; }

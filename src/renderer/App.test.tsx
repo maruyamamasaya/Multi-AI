@@ -309,15 +309,16 @@ describe('App', () => {
     expect(screen.getByRole('combobox', { name: 'ワークスペース一覧' })).toHaveValue('');
   });
 
-  it('shows the service name and icon for conversation URLs and a safe fallback', async () => {
+  it('shows compact service icons for conversation URLs and a safe fallback', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       { ...states[0], url: 'https://chatgpt.com/c/first' },
       { ...states[1], url: 'https://example.org/' },
     ]);
     render(<App />);
     const chatGpt = await screen.findByRole('button', { name: '画面 1: ChatGPT' });
-    expect(chatGpt).toHaveTextContent('CChatGPT');
-    expect(screen.getByRole('button', { name: '画面 2: AIサービス' })).toHaveTextContent('AIAIサービス');
+    expect(chatGpt).toHaveTextContent('1C');
+    expect(chatGpt).not.toHaveTextContent('ChatGPT');
+    expect(screen.getByRole('button', { name: '画面 2: AIサービス' })).toHaveTextContent('2AI');
   });
 
   it('shows duplicate instances of the same AI independently', async () => {
@@ -445,7 +446,9 @@ describe('App', () => {
       states[1],
     ]);
     render(<App />);
-    expect(await screen.findByRole('button', { name: '画面 1: NotebookLM' })).toHaveTextContent('NNotebookLM');
+    const notebookTab = await screen.findByRole('button', { name: '画面 1: NotebookLM' });
+    expect(notebookTab).toHaveTextContent('1N');
+    expect(notebookTab).not.toHaveTextContent('NotebookLM');
   });
 
   it('keeps many independent tabs, displays up to six, and labels duplicate AI panes', async () => {
@@ -466,7 +469,7 @@ describe('App', () => {
     expect(headers).toHaveTextContent('ChatGPT 2');
     expect(headers).toHaveTextContent('ChatGPT 3');
     expect(screen.getByRole('button', { name: 'Geminiを表示する' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Geminiを表示する' })).toHaveTextContent('待機中');
+    expect(screen.getByRole('button', { name: 'Geminiを表示する' })).toHaveTextContent('◌');
     expect(screen.getByRole('button', { name: 'ChatGPT 1を完全に閉じる' })).toBeEnabled();
   });
 
@@ -480,10 +483,10 @@ describe('App', () => {
       .mockResolvedValueOnce({ visibleViewIds: [1, 2], selectedViewId: 1 });
     render(<App />);
     fireEvent.click(await screen.findByRole('button', { name: 'ChatGPTを待機中にする' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを表示する' })).toHaveTextContent('待機中'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを表示する' })).toHaveTextContent('◌'));
     expect(window.multiAI.removeView).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを表示する' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを待機中にする' })).toHaveTextContent('表示中'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを待機中にする' })).toHaveTextContent('◉'));
     fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを完全に閉じる' }));
     await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(1));
   });
@@ -505,6 +508,27 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'AIサービス 2をこの画面から完全に閉じる' }));
     await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(2));
+  });
+
+  it('reorders page blocks by dragging one pane header onto another', async () => {
+    window.multiAI.moveView = vi.fn().mockResolvedValue([states[1], states[0]]);
+    render(<App />);
+    const track = (await screen.findByLabelText('表示中タブ')).firstElementChild!;
+    const source = track.children[0];
+    const target = track.children[1];
+    const transfer = {
+      value: '',
+      dropEffect: 'none',
+      effectAllowed: 'none',
+      setData(_type: string, value: string) { this.value = value; },
+      getData() { return this.value; },
+    };
+
+    fireEvent.dragStart(source, { dataTransfer: transfer });
+    fireEvent.dragOver(target, { dataTransfer: transfer });
+    fireEvent.drop(target, { dataTransfer: transfer });
+
+    await waitFor(() => expect(window.multiAI.moveView).toHaveBeenCalledWith(1, 'right'));
   });
 
   it('shows a lightweight limit message when a seventh pane is requested', async () => {

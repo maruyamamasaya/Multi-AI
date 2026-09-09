@@ -165,6 +165,8 @@ export const App = () => {
   const [zoomError, setZoomError] = useState('');
   const [tabError, setTabError] = useState('');
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [draggedPaneId, setDraggedPaneId] = useState<ViewId | null>(null);
+  const [dropTargetPaneId, setDropTargetPaneId] = useState<ViewId | null>(null);
   const paneHeadersRef = useRef<HTMLDivElement>(null);
   const promptEligibility = useRef(new Map<ViewId, boolean>());
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
@@ -301,6 +303,24 @@ export const App = () => {
 
   const moveView = async (direction: ViewMoveDirection) => {
     setStates(await window.multiAI.moveView(selectedViewId, direction));
+  };
+
+  const reorderPane = async (sourceId: ViewId, targetId: ViewId) => {
+    if (sourceId === targetId || isFocusMode || isComparisonMode) return;
+    const sourceIndex = states.findIndex(({ viewId }) => viewId === sourceId);
+    const targetIndex = states.findIndex(({ viewId }) => viewId === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const direction: ViewMoveDirection = sourceIndex < targetIndex ? 'right' : 'left';
+    let next = states;
+    setTabError('');
+    try {
+      for (let index = 0; index < Math.abs(targetIndex - sourceIndex); index += 1) {
+        next = await window.multiAI.moveView(sourceId, direction);
+      }
+      setStates(next);
+    } catch (reason) {
+      setTabError(reason instanceof Error ? reason.message : '画面を並び替えられませんでした。');
+    }
   };
 
   const toggleFocusMode = async () => {
@@ -543,7 +563,11 @@ export const App = () => {
             const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
             const isSelected = state.viewId === selectedViewId;
             return (
-              <div className={`view-tab${isSelected ? ' active' : ''}${state.isVisible ? '' : ' hidden'}`} key={state.viewId}>
+              <div
+                className={`view-tab${isSelected ? ' active' : ''}${state.isVisible ? '' : ' hidden'}`}
+                key={state.viewId}
+                title={`${tabLabel(state)}\n${state.isVisible ? '表示中' : '待機中'}\n${state.url}`}
+              >
               <button
                 disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || !state.isVisible}
                 className={isSelected ? 'active' : ''}
@@ -553,10 +577,9 @@ export const App = () => {
               >
                 <span className="view-number">{index + 1}</span>
                 <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
-                <span className="view-service-name">{tabLabel(state)}</span>
               </button>
               <button className="tab-visibility" type="button" title={state.isVisible ? '閉じずに待機中へ移す' : visibleStates.length >= MAX_VISIBLE_TABS ? '最大6画面です' : 'ワークスペースに表示する'} aria-label={`${tabLabel(state)}を${state.isVisible ? '待機中にする' : '表示する'}`} disabled={isFocusMode || isComparisonMode || (state.isVisible && visibleStates.length === 1)} onClick={() => void toggleTabVisibility(state)}>
-                <span aria-hidden="true">{state.isVisible ? '◉' : '◌'}</span><span>{state.isVisible ? '表示中' : '待機中'}</span>
+                <span aria-hidden="true">{state.isVisible ? '◉' : '◌'}</span>
               </button>
               <button className="tab-close" type="button" title="タブを完全に閉じる" aria-label={`${tabLabel(state)}を完全に閉じる`} disabled={isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView(state.viewId)}>×</button>
               </div>
@@ -683,7 +706,35 @@ export const App = () => {
         {paneStates.map((state) => {
           const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
           const answerStatus = answerStatuses.get(state.viewId) ?? 'idle';
-          return <div className="pane-header" key={state.viewId}>
+          return <div
+            className={`pane-header${draggedPaneId === state.viewId ? ' dragging' : ''}${dropTargetPaneId === state.viewId ? ' drop-target' : ''}`}
+            draggable={!isFocusMode && !isComparisonMode}
+            key={state.viewId}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move';
+              event.dataTransfer.setData('text/plain', String(state.viewId));
+              setDraggedPaneId(state.viewId);
+            }}
+            onDragOver={(event) => {
+              if (draggedPaneId !== null && draggedPaneId !== state.viewId) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                setDropTargetPaneId(state.viewId);
+              }
+            }}
+            onDragLeave={() => setDropTargetPaneId((current) => current === state.viewId ? null : current)}
+            onDrop={(event) => {
+              event.preventDefault();
+              const sourceId = Number(event.dataTransfer.getData('text/plain'));
+              setDraggedPaneId(null);
+              setDropTargetPaneId(null);
+              if (Number.isInteger(sourceId)) void reorderPane(sourceId, state.viewId);
+            }}
+            onDragEnd={() => {
+              setDraggedPaneId(null);
+              setDropTargetPaneId(null);
+            }}
+          >
             <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
             <strong className="pane-title">{tabLabel(state)}</strong>
             <span className="pane-url" title={state.url} aria-label={`${tabLabel(state)}の現在のURL: ${state.url}`}>{state.url}</span>
