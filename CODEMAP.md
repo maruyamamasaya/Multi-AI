@@ -99,6 +99,7 @@ Primary paths:
 
 Search keywords:
 - `bookmarkChannels`
+- `parseBookmarks`
 - `readBookmarks`
 - `saveBookmarks`
 - `addBookmark`
@@ -110,6 +111,7 @@ Key entry points:
 - `bookmark-actions`
 
 Related tests:
+- `src/shared/bookmarks.test.ts`
 - `src/renderer/App.test.tsx`
 
 ## Workspace Persistence
@@ -134,6 +136,34 @@ Key entry points:
 
 Related tests:
 - `src/shared/workspace.test.ts`
+- `src/renderer/App.test.tsx`
+
+## Named Workspaces
+
+Primary paths:
+- `src/shared/named-workspaces.ts`
+- `src/main/named-workspace-store.ts`
+- `src/main/main.ts`
+- `src/renderer/App.tsx`
+
+Search keywords:
+- `NamedWorkspace`
+- `namedWorkspaceChannels`
+- `named-workspaces.json`
+- `replaceWorkspace`
+- `saveNamedWorkspace`
+- `StartupWorkspaceSelector`
+- `isStartupSelectionOpen`
+
+Key entry points:
+- `parseNamedWorkspaceFile`
+- named workspace IPC handlers in `registerIpcHandlers`
+- `saved-workspace-row`
+- `startup-workspace:start`
+
+Related tests:
+- `src/shared/named-workspaces.test.ts`
+- `src/main/named-workspace-store.test.ts`
 - `src/renderer/App.test.tsx`
 
 ## Preload and IPC

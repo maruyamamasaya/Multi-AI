@@ -2,8 +2,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 720px; min-height: 100vh; }
 button, input, select { font: inherit; }
-.app-bar { height: 126px; border-bottom: 1px solid #303a34; background: #171d19; }
-.workspace-row, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .bookmark-actions { display: flex; align-items: center; }
+.app-bar { height: 164px; border-bottom: 1px solid #303a34; background: #171d19; }
+.workspace-row, .saved-workspace-row, .workspace-save-form, .workspace-library-actions, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .bookmark-actions { display: flex; align-items: center; }
 .workspace-row { height: 58px; gap: 14px; padding: 0 14px; }
 .brand { gap: 8px; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: #102018; background: #91d8b5; font-weight: 800; }
@@ -26,7 +26,15 @@ h1 { margin: 0; font-size: .9rem; }
 .focus-status { flex: 0 0 auto; padding: 4px 7px; border: 1px solid #527363; border-radius: 999px; color: #b9efd5; background: #203128; font-size: .65rem; font-weight: 750; white-space: nowrap; }
 .app-bar.focus-mode { border-bottom-color: #527363; }
 button:disabled { opacity: .35; cursor: default; }
-.bookmark-actions select { width: 140px; padding: 0 6px; }
+.saved-workspace-row { position: relative; height: 38px; gap: 8px; padding: 4px 14px; border-top: 1px solid #28312c; }
+.workspace-save-form, .workspace-library-actions { gap: 4px; }
+.saved-workspace-row input, .saved-workspace-row select, .saved-workspace-row button { height: 28px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26; font-size: .7rem; }
+.saved-workspace-row input { width: 150px; padding: 0 8px; outline: none; background: #111713; }
+.saved-workspace-row input:focus { border-color: #75b895; }
+.saved-workspace-row select { width: 190px; padding: 0 6px; }
+.saved-workspace-row button { padding: 0 9px; cursor: pointer; }
+.workspace-error { overflow: hidden; color: #f09b95; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.bookmark-actions select { width: 190px; padding: 0 6px; }
 .navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }
 .navigation-bar > button { min-width: 32px; cursor: pointer; }
 .navigation-bar .primary-button { padding: 0 13px; border: 0; color: #102018; background: #91d8b5; font-weight: 700; }
@@ -57,5 +65,17 @@ button:disabled { opacity: .35; cursor: default; }
 .service-unknown { color: #d2dbd6; background: #4b5650; }
 .launcher-cancel { display: block; margin-left: auto; padding: 7px 14px; border: 1px solid #3a463f; border-radius: 8px; color: #cdd6d1; background: transparent; cursor: pointer; }
 .launcher-error { position: fixed; z-index: 11; left: 50%; bottom: 20px; transform: translateX(-50%); margin: 0; padding: 8px 12px; border-radius: 8px; color: #ffd1ce; background: #5b2926; font-size: .78rem; }
+.bookmark-error { position: fixed; z-index: 11; right: 14px; top: 170px; margin: 0; padding: 7px 10px; border-radius: 8px; color: #ffd1ce; background: #5b2926; font-size: .72rem; }
+.startup-backdrop { z-index: 20; }
+.startup-selector { width: min(620px, 100%); padding: 24px; border: 1px solid #405148; border-radius: 18px; background: #171d19; box-shadow: 0 24px 70px rgb(0 0 0 / 45%); }
+.startup-selector h2 { margin: 2px 0 5px; font-size: 1.3rem; }
+.startup-description { margin: 0 0 18px; color: #9eaaa3; font-size: .8rem; }
+.startup-options { display: grid; gap: 8px; max-height: 420px; overflow-y: auto; }
+.startup-options button { display: grid; grid-template-columns: minmax(150px, 1fr) auto; gap: 3px 12px; padding: 12px 14px; border: 1px solid #35423a; border-radius: 10px; color: #e7ece9; background: #202823; text-align: left; cursor: pointer; }
+.startup-options button:hover, .startup-options button:focus-visible { border-color: #91d8b5; background: #26352d; outline: none; }
+.startup-options strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.startup-options span { color: #aeb9b3; font-size: .72rem; }
+.startup-services { grid-column: 1 / -1; }
+.startup-error { margin: 12px 0 0; color: #f09b95; font-size: .72rem; }
 @media (max-width: 760px) { .service-grid { grid-template-columns: 1fr; } }
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
 const states = [
@@ -8,6 +8,8 @@ const states = [
 ];
 
 describe('App', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
     window.multiAI = {
       addBookmark: vi.fn().mockResolvedValue([]),
@@ -15,19 +17,25 @@ describe('App', () => {
       back: vi.fn().mockResolvedValue(undefined),
       forward: vi.fn().mockResolvedValue(undefined),
       getBookmarks: vi.fn().mockResolvedValue([]),
+      getNamedWorkspaces: vi.fn().mockResolvedValue([]),
+      getStartupWorkspaceState: vi.fn().mockResolvedValue({ required: false, workspaces: [] }),
       getNavigationStates: vi.fn().mockResolvedValue(states),
       getSelectedViewId: vi.fn().mockResolvedValue(1),
       navigate: vi.fn().mockResolvedValue(undefined),
       moveView: vi.fn().mockResolvedValue([states[1], states[0]]),
+      loadNamedWorkspace: vi.fn().mockResolvedValue({ states: [states[1], states[0]], selectedViewId: 2 }),
       onNavigationState: vi.fn().mockReturnValue(vi.fn()),
       openBookmark: vi.fn().mockResolvedValue(undefined),
       ping: vi.fn().mockResolvedValue('pong'),
       reload: vi.fn().mockResolvedValue(undefined),
       removeBookmark: vi.fn().mockResolvedValue([]),
+      removeNamedWorkspace: vi.fn().mockResolvedValue([]),
       removeView: vi.fn().mockResolvedValue([states[0]]),
       selectView: vi.fn().mockResolvedValue(undefined),
+      saveNamedWorkspace: vi.fn().mockResolvedValue([{ id: 'saved-1', name: '調査用', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' }]),
       setFocusMode: vi.fn().mockResolvedValue(undefined),
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
+      startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
     };
   });
 
@@ -83,6 +91,40 @@ describe('App', () => {
     window.multiAI.getSelectedViewId = vi.fn().mockResolvedValue(2);
     render(<App />);
     expect(await screen.findByRole('button', { name: '画面 2: AIサービス' })).toHaveClass('active');
+  });
+
+  it('starts immediately without a selector when there are no named workspaces', async () => {
+    render(<App />);
+    await waitFor(() => expect(window.multiAI.getStartupWorkspaceState).toHaveBeenCalled());
+    expect(screen.queryByRole('dialog', { name: '開始するワークスペース' })).not.toBeInTheDocument();
+    expect(window.multiAI.startWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('shows named workspace details and continues from the previous workspace', async () => {
+    window.multiAI.getStartupWorkspaceState = vi.fn().mockResolvedValue({
+      required: true,
+      workspaces: [{ id: 'startup-1', name: '調査セット', viewCount: 3, serviceIds: ['chatgpt', 'claude'], updatedAt: '2026-09-09T00:00:00.000Z' }],
+    });
+    render(<App />);
+    const dialog = await screen.findByRole('dialog', { name: '開始するワークスペース' });
+    expect(dialog).toHaveTextContent('調査セット');
+    expect(dialog).toHaveTextContent('3画面');
+    expect(dialog).toHaveTextContent('ChatGPT · Claude');
+    fireEvent.click(screen.getByRole('button', { name: /前回の続き/ }));
+    await waitFor(() => expect(window.multiAI.startWorkspace).toHaveBeenCalledWith({ kind: 'last' }));
+    expect(screen.queryByRole('dialog', { name: '開始するワークスペース' })).not.toBeInTheDocument();
+  });
+
+  it('starts with the selected named workspace and restores its selection', async () => {
+    window.multiAI.getStartupWorkspaceState = vi.fn().mockResolvedValue({
+      required: true,
+      workspaces: [{ id: 'startup-1', name: '調査セット', viewCount: 2, serviceIds: ['gemini'], updatedAt: '2026-09-09T00:00:00.000Z' }],
+    });
+    window.multiAI.startWorkspace = vi.fn().mockResolvedValue({ states: [states[1], states[0]], selectedViewId: 2 });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: /調査セット/ }));
+    await waitFor(() => expect(window.multiAI.startWorkspace).toHaveBeenCalledWith({ kind: 'named', workspaceId: 'startup-1' }));
+    expect(screen.getByRole('button', { name: '画面 1: AIサービス' })).toHaveClass('active');
   });
 
   it('toggles focus mode without changing the view order and locks layout actions', async () => {
@@ -150,9 +192,80 @@ describe('App', () => {
   });
 
   it('saves the selected page as a bookmark', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/c/example' },
+      states[1],
+    ]);
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '現在のページをブックマーク' }));
+    const save = screen.getByRole('button', { name: '現在のAI会話を保存' });
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
     await waitFor(() => expect(window.multiAI.addBookmark).toHaveBeenCalledWith(1));
+  });
+
+  it('does not allow an unsupported page to be bookmarked', async () => {
+    render(<App />);
+    const save = screen.getByRole('button', { name: '現在のAI会話を保存' });
+    await waitFor(() => expect(save).toBeDisabled());
+    fireEvent.click(save);
+    expect(window.multiAI.addBookmark).not.toHaveBeenCalled();
+  });
+
+  it('lists a saved conversation with its AI icon, name, and display name', async () => {
+    window.multiAI.getBookmarks = vi.fn().mockResolvedValue([
+      { id: 'conversation-1', title: '設計相談', url: 'https://claude.ai/chat/example', serviceId: 'claude' },
+    ]);
+    render(<App />);
+    const list = await screen.findByRole('combobox', { name: 'AI会話ブックマーク' });
+    expect(list).toHaveTextContent('Cl Claude · 設計相談');
+    fireEvent.change(list, { target: { value: 'conversation-1' } });
+    fireEvent.click(screen.getByRole('button', { name: '選択中画面でAI会話を開く' }));
+    await waitFor(() => expect(window.multiAI.openBookmark).toHaveBeenCalledWith(1, 'conversation-1'));
+  });
+
+  it('saves the current workspace with a name', async () => {
+    render(<App />);
+    const name = await screen.findByRole('textbox', { name: 'ワークスペース名' });
+    fireEvent.change(name, { target: { value: '調査用' } });
+    fireEvent.click(screen.getByRole('button', { name: 'ワークスペース保存' }));
+    await waitFor(() => expect(window.multiAI.saveNamedWorkspace).toHaveBeenCalledWith('調査用', false));
+    expect(screen.getByRole('combobox', { name: 'ワークスペース一覧' })).toHaveValue('saved-1');
+  });
+
+  it('confirms before overwriting a workspace with the same name', async () => {
+    window.multiAI.getStartupWorkspaceState = vi.fn().mockResolvedValue({ required: false, workspaces: [
+      { id: 'saved-1', name: '調査用', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' },
+    ] });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<App />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'ワークスペース名' }), { target: { value: '調査用' } });
+    fireEvent.click(screen.getByRole('button', { name: 'ワークスペース保存' }));
+    await waitFor(() => expect(window.multiAI.saveNamedWorkspace).toHaveBeenCalledWith('調査用', true));
+    expect(window.confirm).toHaveBeenCalledWith('「調査用」を上書きしますか？');
+  });
+
+  it('loads a named workspace and restores its selected view', async () => {
+    window.multiAI.getStartupWorkspaceState = vi.fn().mockResolvedValue({ required: false, workspaces: [
+      { id: 'saved-1', name: '調査用', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' },
+    ] });
+    render(<App />);
+    const list = await screen.findByRole('combobox', { name: 'ワークスペース一覧' });
+    fireEvent.change(list, { target: { value: 'saved-1' } });
+    fireEvent.click(screen.getByRole('button', { name: '切り替え' }));
+    await waitFor(() => expect(window.multiAI.loadNamedWorkspace).toHaveBeenCalledWith('saved-1'));
+    expect(screen.getByRole('button', { name: '画面 1: AIサービス' })).toHaveClass('active');
+  });
+
+  it('confirms and removes a saved workspace', async () => {
+    window.multiAI.getStartupWorkspaceState = vi.fn().mockResolvedValue({ required: false, workspaces: [
+      { id: 'saved-1', name: '調査用', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' },
+    ] });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<App />);
+    fireEvent.change(await screen.findByRole('combobox', { name: 'ワークスペース一覧' }), { target: { value: 'saved-1' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存済みワークスペースを削除' }));
+    await waitFor(() => expect(window.multiAI.removeNamedWorkspace).toHaveBeenCalledWith('saved-1'));
+    expect(screen.getByRole('combobox', { name: 'ワークスペース一覧' })).toHaveValue('');
   });
 
   it('shows the service name and icon for conversation URLs and a safe fallback', async () => {

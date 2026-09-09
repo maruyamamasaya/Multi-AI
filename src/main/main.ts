@@ -8,7 +8,17 @@ import {
   launcherChannels,
   type AiServiceId,
 } from '../shared/ai-services';
-import { bookmarkChannels, type Bookmark } from '../shared/bookmarks';
+import { bookmarkChannels, parseBookmarks, type Bookmark } from '../shared/bookmarks';
+import {
+  namedWorkspaceChannels,
+  normalizeWorkspaceName,
+  summarizeNamedWorkspaces,
+  workspaceNamesMatch,
+  type NamedWorkspaceLoadResult,
+  type NamedWorkspaceSummary,
+  type StartupWorkspaceSelection,
+  type StartupWorkspaceState,
+} from '../shared/named-workspaces';
 import {
   navigationChannels,
   normalizeNavigationUrl,
@@ -21,9 +31,10 @@ import {
   type WorkspaceSnapshot,
 } from '../shared/workspace';
 import { calculateViewBounds } from './layout';
+import { readNamedWorkspaceFile, writeNamedWorkspaceFile } from './named-workspace-store';
 import { readWorkspaceSnapshot, writeWorkspaceSnapshot } from './workspace-store';
 
-const TOOLBAR_HEIGHT = 126;
+const TOOLBAR_HEIGHT = 164;
 const DEFAULT_URLS = ['https://example.com/'] as const;
 const MAX_VIEWS = 4;
 
@@ -39,9 +50,11 @@ let pageViews: PageView[] = [];
 let nextViewId = 1;
 let selectedViewId: ViewId | null = null;
 let workspaceWriteQueue = Promise.resolve();
+let namedWorkspaceWriteQueue = Promise.resolve();
 let isRestoringWorkspace = false;
 let isLauncherOpen = false;
 let focusedViewId: ViewId | null = null;
+let isStartupSelectionOpen = false;
 
 const getPageView = (viewId: unknown): PageView => {
   if (!Number.isInteger(viewId)) throw new Error('対象のビューが見つかりません。');
@@ -63,15 +76,18 @@ const getNavigationState = ({ id, lastUrl, serviceId, view }: PageView): Navigat
 const getNavigationStates = (): NavigationState[] => pageViews.map(getNavigationState);
 
 const workspaceFile = (): string => path.join(app.getPath('userData'), 'workspace.json');
+const namedWorkspacesFile = (): string => path.join(app.getPath('userData'), 'named-workspaces.json');
 
-const persistWorkspace = (): Promise<void> => {
-  const snapshot: WorkspaceSnapshot = {
+const captureWorkspace = (): WorkspaceSnapshot => ({
     viewCount: pageViews.length,
     urls: pageViews.map(({ lastUrl, view }) => view.webContents.getURL() || lastUrl),
     serviceIds: pageViews.map(({ serviceId }) => serviceId),
     selectedIndex: Math.max(0, pageViews.findIndex(({ id }) => id === selectedViewId)),
     layout: workspaceLayoutForViewCount(pageViews.length),
-  };
+});
+
+const persistWorkspace = (): Promise<void> => {
+  const snapshot = captureWorkspace();
   workspaceWriteQueue = workspaceWriteQueue.catch(() => undefined).then(() =>
     writeWorkspaceSnapshot(workspaceFile(), snapshot),
   );
@@ -81,7 +97,7 @@ const persistWorkspace = (): Promise<void> => {
 const updateViewBounds = (): void => {
   if (!mainWindow) return;
   const { width, height } = mainWindow.getContentBounds();
-  if (isLauncherOpen) {
+  if (isLauncherOpen || isStartupSelectionOpen) {
     pageViews.forEach(({ view }) => view.setVisible(false));
     return;
   }
@@ -104,6 +120,30 @@ const updateViewBounds = (): void => {
 
 const ensureSplitMode = (): void => {
   if (focusedViewId !== null) throw new Error('集中表示を解除してから画面を変更してください。');
+};
+
+const replaceWorkspace = async (snapshot: WorkspaceSnapshot): Promise<NamedWorkspaceLoadResult> => {
+  ensureSplitMode();
+  if (isLauncherOpen) throw new Error('ランチャーを閉じてからワークスペースを切り替えてください。');
+  isRestoringWorkspace = true;
+  try {
+    pageViews.forEach(({ view }) => {
+      mainWindow?.contentView.removeChildView(view);
+      view.webContents.close();
+    });
+    pageViews = snapshot.urls.map((url, index) =>
+      createPageView(url, snapshot.serviceIds[index] ?? null, false),
+    );
+    selectedViewId = pageViews[snapshot.selectedIndex]?.id ?? pageViews[0].id;
+    updateViewBounds();
+    pageViews.forEach(({ lastUrl, view }) => {
+      void view.webContents.loadURL(lastUrl).catch(() => undefined);
+    });
+  } finally {
+    isRestoringWorkspace = false;
+  }
+  await persistWorkspace();
+  return { states: getNavigationStates(), selectedViewId: selectedViewId! };
 };
 
 const createPageView = (
@@ -140,7 +180,7 @@ const createPageView = (
   pageView.view.webContents.on('did-stop-loading', publishState);
   pageView.view.webContents.on('page-title-updated', publishState);
   mainWindow.contentView.addChildView(pageView.view);
-  pageView.view.setVisible(!isLauncherOpen);
+  pageView.view.setVisible(!isLauncherOpen && !isStartupSelectionOpen);
   if (loadImmediately) void pageView.view.webContents.loadURL(url).catch(() => undefined);
   return pageView;
 };
@@ -201,10 +241,9 @@ const bookmarksFile = (): string => path.join(app.getPath('userData'), 'bookmark
 
 const readBookmarks = async (): Promise<Bookmark[]> => {
   try {
-    const parsed: unknown = JSON.parse(await readFile(bookmarksFile(), 'utf8'));
-    return Array.isArray(parsed) ? (parsed as Bookmark[]) : [];
+    return parseBookmarks(JSON.parse(await readFile(bookmarksFile(), 'utf8')));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT' || error instanceof SyntaxError) return [];
     throw error;
   }
 };
@@ -269,13 +308,88 @@ const registerIpcHandlers = (): void => {
     updateViewBounds();
   });
 
+  ipcMain.handle(namedWorkspaceChannels.getAll, async () =>
+    summarizeNamedWorkspaces((await readNamedWorkspaceFile(namedWorkspacesFile())).workspaces),
+  );
+  ipcMain.handle(namedWorkspaceChannels.getStartupState, async (): Promise<StartupWorkspaceState> => ({
+    required: isStartupSelectionOpen,
+    workspaces: summarizeNamedWorkspaces((await readNamedWorkspaceFile(namedWorkspacesFile())).workspaces),
+  }));
+  ipcMain.handle(namedWorkspaceChannels.start, async (_event, selection: unknown) => {
+    if (!isStartupSelectionOpen) throw new Error('起動ワークスペースは既に選択されています。');
+    if (!selection || typeof selection !== 'object') throw new Error('起動ワークスペースの指定が不正です。');
+    const candidate = selection as Partial<StartupWorkspaceSelection>;
+    if (candidate.kind === 'last') {
+      isStartupSelectionOpen = false;
+      updateViewBounds();
+      return { states: getNavigationStates(), selectedViewId: selectedViewId! };
+    }
+    if (candidate.kind !== 'named' || typeof candidate.workspaceId !== 'string') {
+      throw new Error('起動ワークスペースの指定が不正です。');
+    }
+    const workspace = (await readNamedWorkspaceFile(namedWorkspacesFile())).workspaces.find(
+      ({ id }) => id === candidate.workspaceId,
+    );
+    if (!workspace) throw new Error('ワークスペースが見つかりません。');
+    const result = await replaceWorkspace(workspace.snapshot);
+    isStartupSelectionOpen = false;
+    updateViewBounds();
+    return result;
+  });
+  ipcMain.handle(namedWorkspaceChannels.save, async (_event, input: unknown, overwrite: unknown) => {
+    ensureSplitMode();
+    if (typeof overwrite !== 'boolean') throw new Error('上書き指定が不正です。');
+    const name = normalizeWorkspaceName(input);
+    const snapshot = captureWorkspace();
+    let summaries: NamedWorkspaceSummary[] = [];
+    namedWorkspaceWriteQueue = namedWorkspaceWriteQueue.catch(() => undefined).then(async () => {
+      const file = await readNamedWorkspaceFile(namedWorkspacesFile());
+      const existing = file.workspaces.find((workspace) => workspaceNamesMatch(workspace.name, name));
+      if (existing && !overwrite) throw new Error('同名のワークスペースが既にあります。');
+      const now = new Date().toISOString();
+      if (existing) {
+        existing.name = name;
+        existing.snapshot = snapshot;
+        existing.updatedAt = now;
+      } else {
+        file.workspaces.push({ id: randomUUID(), name, snapshot, createdAt: now, updatedAt: now });
+      }
+      await writeNamedWorkspaceFile(namedWorkspacesFile(), file);
+      summaries = summarizeNamedWorkspaces(file.workspaces);
+    });
+    await namedWorkspaceWriteQueue;
+    return summaries;
+  });
+  ipcMain.handle(namedWorkspaceChannels.load, async (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string') throw new Error('ワークスペースが見つかりません。');
+    const workspace = (await readNamedWorkspaceFile(namedWorkspacesFile())).workspaces.find(({ id }) => id === workspaceId);
+    if (!workspace) throw new Error('ワークスペースが見つかりません。');
+    return replaceWorkspace(workspace.snapshot);
+  });
+  ipcMain.handle(namedWorkspaceChannels.remove, async (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string') throw new Error('ワークスペースが見つかりません。');
+    let summaries: NamedWorkspaceSummary[] = [];
+    namedWorkspaceWriteQueue = namedWorkspaceWriteQueue.catch(() => undefined).then(async () => {
+      const file = await readNamedWorkspaceFile(namedWorkspacesFile());
+      const next = file.workspaces.filter(({ id }) => id !== workspaceId);
+      if (next.length === file.workspaces.length) throw new Error('ワークスペースが見つかりません。');
+      file.workspaces = next;
+      await writeNamedWorkspaceFile(namedWorkspacesFile(), file);
+      summaries = summarizeNamedWorkspaces(file.workspaces);
+    });
+    await namedWorkspaceWriteQueue;
+    return summaries;
+  });
+
   ipcMain.handle(bookmarkChannels.getAll, readBookmarks);
   ipcMain.handle(bookmarkChannels.add, async (_event, viewId: unknown) => {
     const state = getNavigationState(getPageView(viewId));
     if (!state.url) throw new Error('保存できるページがありません。');
+    const service = getAiServiceByUrl(state.url);
+    if (!service) throw new Error('対応AIサービスのページだけ保存できます。');
     const bookmarks = await readBookmarks();
     if (!bookmarks.some(({ url }) => url === state.url)) {
-      bookmarks.push({ id: randomUUID(), title: state.title || state.url, url: state.url });
+      bookmarks.push({ id: randomUUID(), title: state.title || state.url, url: state.url, serviceId: service.id });
       await saveBookmarks(bookmarks);
     }
     return bookmarks;
@@ -291,12 +405,13 @@ const registerIpcHandlers = (): void => {
     if (!bookmark) throw new Error('ブックマークが見つかりません。');
     const pageView = getPageView(viewId);
     pageView.lastUrl = normalizeNavigationUrl(bookmark.url);
-    pageView.serviceId = getAiServiceByUrl(pageView.lastUrl)?.id ?? null;
+    pageView.serviceId = bookmark.serviceId;
     await pageView.view.webContents.loadURL(pageView.lastUrl);
+    await persistWorkspace();
   });
 };
 
-const createMainWindow = (workspace: WorkspaceSnapshot): BrowserWindow => {
+const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: boolean): BrowserWindow => {
   const window = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -313,6 +428,7 @@ const createMainWindow = (workspace: WorkspaceSnapshot): BrowserWindow => {
   mainWindow = window;
   isLauncherOpen = false;
   focusedViewId = null;
+  isStartupSelectionOpen = showStartupSelection;
   void window.loadFile(path.join(__dirname, '../../dist-renderer/index.html'));
   isRestoringWorkspace = true;
   pageViews = workspace.urls.map((url, index) =>
@@ -346,12 +462,19 @@ app.whenReady().then(async () => {
     (_webContents, _permission, callback) => callback(false),
   );
   registerIpcHandlers();
-  const workspace = await readWorkspaceSnapshot(workspaceFile(), DEFAULT_URLS);
-  mainWindow = createMainWindow(workspace);
+  const [workspace, namedWorkspaceFile] = await Promise.all([
+    readWorkspaceSnapshot(workspaceFile(), DEFAULT_URLS),
+    readNamedWorkspaceFile(namedWorkspacesFile()),
+  ]);
+  mainWindow = createMainWindow(workspace, namedWorkspaceFile.workspaces.length > 0);
   await persistWorkspace();
   app.on('activate', async () => {
     if (mainWindow === null) {
-      mainWindow = createMainWindow(await readWorkspaceSnapshot(workspaceFile(), DEFAULT_URLS));
+      const [restoredWorkspace, restoredNamedWorkspaceFile] = await Promise.all([
+        readWorkspaceSnapshot(workspaceFile(), DEFAULT_URLS),
+        readNamedWorkspaceFile(namedWorkspacesFile()),
+      ]);
+      mainWindow = createMainWindow(restoredWorkspace, restoredNamedWorkspaceFile.workspaces.length > 0);
     }
   });
 });

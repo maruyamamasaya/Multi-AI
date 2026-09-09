@@ -13,6 +13,7 @@ Electron main
   ├─ WebContentsView × 1～4
   └─ userData/
        ├─ bookmarks.json
+       ├─ named-workspaces.json
        └─ workspace.json
 ```
 
@@ -48,8 +49,10 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 - `AI_SERVICES` / `ServiceLauncher`: 対応AIの識別子・表示名・アイコン・URL・判定ホストを一元管理し、画面追加前の選択UIを提供する。
 - `calculateViewBounds`: 画面数に応じて全画面、2分割、3分割、2×2を計算する。
 - `registerIpcHandlers`: ビューIDを検証し、URL移動と履歴操作を処理する。
-- `readBookmarks` / `saveBookmarks`: 名前とURLだけをuserData内のJSONへ保存する。
+- `parseBookmarks` / `readBookmarks` / `saveBookmarks`: 対応AIの表示名、URL、サービスIDだけをuserData内のJSONへ保存し、旧形式を読み替える。
 - `readWorkspaceSnapshot` / `writeWorkspaceSnapshot`: URL配列と選択位置を保存・復元する。
+- `readNamedWorkspaceFile` / `writeNamedWorkspaceFile`: バージョン付きの名前付きワークスペース一覧を別JSONへ保存する。
+- `StartupWorkspaceSelector`: 名前付き保存がある起動時だけ、前回状態または保存構成を選ぶモーダルを表示する。
 - preload: `contextBridge`で型付きの限定ナビゲーションAPIを公開する。
 - `App` / `ViewToolbar`: 各ビューのURL、履歴ボタン、読み込み状態を表示する。
 
@@ -61,9 +64,15 @@ mainは起動時に `workspace.json` を検証して画面数、URL、選択位�
 
 集中表示は選択中の `WebContentsView` だけを表示領域全体へ広げ、他のビューは破棄せず一時的に非表示にします。解除時は同じ配列順から分割boundsを再計算するため、URL、AIサービス、履歴、ページ内状態、選択状態を維持します。集中表示はプロセス内だけの一時状態で `workspace.json` には含めず、再起動時は通常の分割表示に戻します。集中表示中は追加・削除・並び替え・別画面選択をrendererとmainの両方で抑止します。
 
+名前付きワークスペースは通常の終了時復元用 `workspace.json` から分離し、`named-workspaces.json` にバージョン、安定ID、名前、作成・更新日時、検証済みsnapshotを保存します。同名は大文字小文字を区別せず検出し、利用者が上書きを確認した場合だけ既存IDを更新します。読み込み時は全URLを開く前に新しいビュー配列、AIサービスID、選択状態、boundsを確定し、その構成を通常の `workspace.json` にも書き込みます。集中表示はsnapshotに含みません。
+
+起動前にmainが名前付き一覧を検証し、1件以上ある場合だけ起動選択状態にします。選択中は作成済みの外部 `WebContentsView` をすべて非表示にし、rendererの選択モーダルだけを前面へ出します。「前回の続き」は起動時に読んだ `workspace.json` の構成をそのまま表示し、名前付き構成は通常の安全な差し替え処理を経て `workspace.json` に反映します。一覧がない、壊れている、または有効な項目がない場合は選択を省略して従来どおり起動します。
+
 画面追加時はrendererのランチャーが `src/shared/ai-services.ts` の候補を表示し、選択したサービスIDだけをmainへ渡します。mainは同じ定義からIDを検証して対応URLを開きます。ランチャー表示中は外部 `WebContentsView` を一時的に隠し、キャンセル時はビューや保存状態を変更せず再表示します。
 
 rendererは各ビューに保持したサービスIDを使い、画面タブへ番号、サービスアイコン、AI名を表示します。サービスIDはURLとともにworkspaceへ保存し、会話ページや外部認証ページへ遷移しても表示を維持します。旧workspaceでは対応ホストからIDを推定し、未対応URLは汎用の `AIサービス` 表示へ安全にフォールバックします。
+
+ブックマーク追加時は現在URLのホストを `AI_SERVICES` と照合し、対応AIのページだけを表示名、正規化URL、サービスIDとともに保存します。同じURLは追加しません。旧 `bookmarks.json` のID、title、URLだけの項目はURLからサービスIDを補完し、未対応URL、不正項目、重複URLは安全に一覧から除外します。rendererは同じ中央定義からアイコン、AI名、表示名を一覧へ表示し、選択した会話URLを現在選択中のビューへ開きます。
 
 ## API / Database / Authentication
 
@@ -72,8 +81,9 @@ rendererは各ビューに保持したサービスIDを使い、画面タブへ�
 - アプリ独自認証: なし
 - Environment Variables: なし
 - External Services: ChatGPT、Claude、Gemini、Perplexity、Grok、Microsoft Copilot、NotebookLM。正確なURLは `src/shared/ai-services.ts` を正本とする
-- Local Data: Electron `userData/bookmarks.json` にブックマークだけを保存
+- Local Data: Electron `userData/bookmarks.json` に対応AIの会話ブックマーク（表示名、URL、AIサービスID）だけを保存
 - Workspace Data: Electron `userData/workspace.json` に画面数、URL配列、サービスID配列、選択インデックス、分割レイアウトを保存
+- Named Workspace Data: Electron `userData/named-workspaces.json` にバージョン付きの名前、ID、日時、ワークスペースsnapshot一覧を保存
 
 ## Build and Deployment
 

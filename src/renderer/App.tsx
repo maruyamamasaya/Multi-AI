@@ -7,6 +7,7 @@ import {
   type AiServiceId,
 } from '../shared/ai-services';
 import type { Bookmark } from '../shared/bookmarks';
+import type { NamedWorkspaceSummary } from '../shared/named-workspaces';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 
 const initialStates: NavigationState[] = [
@@ -83,16 +84,61 @@ const ServiceLauncher = ({
   </div>
 );
 
+const StartupWorkspaceSelector = ({
+  error,
+  onSelect,
+  workspaces,
+}: {
+  error: string;
+  onSelect: (selection: { kind: 'last' } | { kind: 'named'; workspaceId: string }) => Promise<void>;
+  workspaces: NamedWorkspaceSummary[];
+}) => (
+  <div className="launcher-backdrop startup-backdrop">
+    <section className="startup-selector" role="dialog" aria-modal="true" aria-labelledby="startup-title">
+      <p className="launcher-eyebrow">START WORKSPACE</p>
+      <h2 id="startup-title">開始するワークスペース</h2>
+      <p className="startup-description">使う構成を1つ選んでください。</p>
+      <div className="startup-options">
+        <button type="button" onClick={() => void onSelect({ kind: 'last' })}>
+          <strong>前回の続き</strong>
+          <span>最後に閉じた画面構成</span>
+        </button>
+        {workspaces.map((workspace) => (
+          <button type="button" key={workspace.id} onClick={() => void onSelect({ kind: 'named', workspaceId: workspace.id })}>
+            <strong>{workspace.name}</strong>
+            <span>{workspace.viewCount}画面</span>
+            <span className="startup-services">
+              {workspace.serviceIds.length
+                ? workspace.serviceIds.map((serviceId) => getAiService(serviceId)?.name).filter(Boolean).join(' · ')
+                : 'AIサービス未設定'}
+            </span>
+          </button>
+        ))}
+      </div>
+      {error ? <p className="startup-error" role="alert">{error}</p> : null}
+    </section>
+  </div>
+);
+
 export const App = () => {
   const [states, setStates] = useState(initialStates);
   const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
   const [selectedViewId, setSelectedViewId] = useState<ViewId>(1);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [selectedBookmarkId, setSelectedBookmarkId] = useState('');
+  const [bookmarkError, setBookmarkError] = useState('');
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [launcherError, setLauncherError] = useState('');
+  const [namedWorkspaces, setNamedWorkspaces] = useState<NamedWorkspaceSummary[]>([]);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [savedWorkspaceId, setSavedWorkspaceId] = useState('');
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [startupWorkspaces, setStartupWorkspaces] = useState<NamedWorkspaceSummary[]>([]);
+  const [isStartupSelectionOpen, setIsStartupSelectionOpen] = useState(false);
+  const [startupError, setStartupError] = useState('');
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
+  const selectedBookmarkService = getAiServiceByUrl(selectedState?.url ?? '');
 
   useEffect(() => {
     const updateState = (next: NavigationState) => {
@@ -113,6 +159,21 @@ export const App = () => {
       .catch(() => undefined)
       .finally(() => setIsWorkspaceReady(true));
     void window.multiAI.getBookmarks().then(setBookmarks);
+    void window.multiAI.getStartupWorkspaceState()
+      .then(({ required, workspaces }) => {
+        setNamedWorkspaces(workspaces);
+        setStartupWorkspaces(workspaces);
+        setIsStartupSelectionOpen(required);
+      })
+      .catch(async () => {
+        try {
+          const result = await window.multiAI.startWorkspace({ kind: 'last' });
+          setStates(result.states);
+          setSelectedViewId(result.selectedViewId);
+        } catch {
+          setStartupError('起動ワークスペースを確認できませんでした。');
+        }
+      });
     return unsubscribe;
   }, []);
 
@@ -171,17 +232,90 @@ export const App = () => {
   };
 
   const addBookmark = async () => {
-    setBookmarks(await window.multiAI.addBookmark(selectedViewId));
+    setBookmarkError('');
+    try {
+      setBookmarks(await window.multiAI.addBookmark(selectedViewId));
+    } catch (reason) {
+      setBookmarkError(reason instanceof Error ? reason.message : 'AI会話を保存できませんでした。');
+    }
   };
 
   const openBookmark = async () => {
-    if (selectedBookmarkId) await window.multiAI.openBookmark(selectedViewId, selectedBookmarkId);
+    if (!selectedBookmarkId) return;
+    setBookmarkError('');
+    try {
+      await window.multiAI.openBookmark(selectedViewId, selectedBookmarkId);
+    } catch (reason) {
+      setBookmarkError(reason instanceof Error ? reason.message : 'AI会話を開けませんでした。');
+    }
   };
 
   const removeBookmark = async () => {
     if (!selectedBookmarkId) return;
-    setBookmarks(await window.multiAI.removeBookmark(selectedBookmarkId));
-    setSelectedBookmarkId('');
+    setBookmarkError('');
+    try {
+      setBookmarks(await window.multiAI.removeBookmark(selectedBookmarkId));
+      setSelectedBookmarkId('');
+    } catch (reason) {
+      setBookmarkError(reason instanceof Error ? reason.message : 'AI会話を削除できませんでした。');
+    }
+  };
+
+  const saveNamedWorkspace = async (event: FormEvent) => {
+    event.preventDefault();
+    setWorkspaceError('');
+    const name = workspaceName.trim();
+    const existing = namedWorkspaces.find(({ name: savedName }) =>
+      savedName.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
+    );
+    if (existing && !window.confirm(`「${existing.name}」を上書きしますか？`)) return;
+    try {
+      const next = await window.multiAI.saveNamedWorkspace(name, Boolean(existing));
+      setNamedWorkspaces(next);
+      setSavedWorkspaceId(next.find(({ name: savedName }) =>
+        savedName.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
+      )?.id ?? '');
+      setWorkspaceName('');
+    } catch (reason) {
+      setWorkspaceError(reason instanceof Error ? reason.message : 'ワークスペースを保存できませんでした。');
+    }
+  };
+
+  const loadNamedWorkspace = async () => {
+    if (!savedWorkspaceId) return;
+    setWorkspaceError('');
+    try {
+      const result = await window.multiAI.loadNamedWorkspace(savedWorkspaceId);
+      setStates(result.states);
+      setSelectedViewId(result.selectedViewId);
+    } catch (reason) {
+      setWorkspaceError(reason instanceof Error ? reason.message : 'ワークスペースを切り替えられませんでした。');
+    }
+  };
+
+  const removeNamedWorkspace = async () => {
+    if (!savedWorkspaceId) return;
+    const workspace = namedWorkspaces.find(({ id }) => id === savedWorkspaceId);
+    if (!workspace || !window.confirm(`「${workspace.name}」を削除しますか？`)) return;
+    setWorkspaceError('');
+    try {
+      setNamedWorkspaces(await window.multiAI.removeNamedWorkspace(savedWorkspaceId));
+      setSavedWorkspaceId('');
+    } catch (reason) {
+      setWorkspaceError(reason instanceof Error ? reason.message : 'ワークスペースを削除できませんでした。');
+    }
+  };
+
+  const startWorkspace = async (selection: { kind: 'last' } | { kind: 'named'; workspaceId: string }) => {
+    setStartupError('');
+    try {
+      const result = await window.multiAI.startWorkspace(selection);
+      setStates(result.states);
+      setSelectedViewId(result.selectedViewId);
+      setIsStartupSelectionOpen(false);
+    } catch (reason) {
+      setStartupError(reason instanceof Error ? reason.message : 'ワークスペースを開始できませんでした。');
+    }
   };
 
   if (!selectedState) return null;
@@ -229,18 +363,38 @@ export const App = () => {
         </div>
         {isFocusMode ? <span className="focus-status" role="status">集中表示中</span> : null}
         <div className="bookmark-actions">
-          <button aria-label="現在のページをブックマーク" onClick={() => void addBookmark()}>☆</button>
-          <select aria-label="ブックマーク" value={selectedBookmarkId} onChange={(event) => setSelectedBookmarkId(event.target.value)}>
-            <option value="">ブックマーク</option>
-            {bookmarks.map((bookmark) => <option key={bookmark.id} value={bookmark.id}>{bookmark.title}</option>)}
+          <button aria-label="現在のAI会話を保存" title={selectedBookmarkService ? '現在のAI会話を保存' : '対応AIサービスのページだけ保存できます'} disabled={!selectedBookmarkService} onClick={() => void addBookmark()}>☆</button>
+          <select aria-label="AI会話ブックマーク" value={selectedBookmarkId} onChange={(event) => setSelectedBookmarkId(event.target.value)}>
+            <option value="">AI会話一覧</option>
+            {bookmarks.map((bookmark) => {
+              const service = getAiService(bookmark.serviceId) ?? UNKNOWN_AI_SERVICE;
+              return <option key={bookmark.id} value={bookmark.id}>{service.icon} {service.name} · {bookmark.title}</option>;
+            })}
           </select>
-          <button disabled={!selectedBookmarkId} onClick={() => void openBookmark()}>開く</button>
-          <button aria-label="ブックマークを削除" disabled={!selectedBookmarkId} onClick={() => void removeBookmark()}>×</button>
+          <button aria-label="選択中画面でAI会話を開く" disabled={!selectedBookmarkId} onClick={() => void openBookmark()}>開く</button>
+          <button aria-label="AI会話ブックマークを削除" disabled={!selectedBookmarkId} onClick={() => void removeBookmark()}>×</button>
         </div>
+      </div>
+      <div className="saved-workspace-row">
+        <form className="workspace-save-form" aria-label="名前付きワークスペース保存" onSubmit={(event) => void saveNamedWorkspace(event)}>
+          <input aria-label="ワークスペース名" value={workspaceName} maxLength={60} placeholder="ワークスペース名" disabled={!isWorkspaceReady || isFocusMode} onChange={(event) => setWorkspaceName(event.target.value)} />
+          <button type="submit" disabled={!isWorkspaceReady || isFocusMode || !workspaceName.trim()}>ワークスペース保存</button>
+        </form>
+        <div className="workspace-library-actions">
+          <select aria-label="ワークスペース一覧" value={savedWorkspaceId} disabled={!isWorkspaceReady || isFocusMode} onChange={(event) => setSavedWorkspaceId(event.target.value)}>
+            <option value="">ワークスペース一覧</option>
+            {namedWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}（{workspace.viewCount}画面）</option>)}
+          </select>
+          <button disabled={!savedWorkspaceId || isFocusMode} onClick={() => void loadNamedWorkspace()}>切り替え</button>
+          <button aria-label="保存済みワークスペースを削除" disabled={!savedWorkspaceId || isFocusMode} onClick={() => void removeNamedWorkspace()}>削除</button>
+        </div>
+        {workspaceError ? <span className="workspace-error" role="alert">{workspaceError}</span> : null}
       </div>
       <NavigationBar state={selectedState} />
       {isLauncherOpen ? <ServiceLauncher onCancel={closeLauncher} onSelect={addView} /> : null}
       {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}
+      {bookmarkError ? <p className="bookmark-error" role="alert">{bookmarkError}</p> : null}
+      {isStartupSelectionOpen ? <StartupWorkspaceSelector error={startupError} onSelect={startWorkspace} workspaces={startupWorkspaces} /> : null}
     </header>
   );
 };
