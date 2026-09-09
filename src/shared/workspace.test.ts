@@ -9,6 +9,7 @@ describe('parseWorkspaceSnapshot', () => {
       viewCount: 1,
       urls: ['https://example.net/'],
       serviceIds: [null],
+      visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
     });
@@ -19,6 +20,7 @@ describe('parseWorkspaceSnapshot', () => {
       viewCount: 2,
       urls: fallback,
       serviceIds: [null, null],
+      visibleIndices: [0, 1],
       selectedIndex: 0,
       layout: 'columns',
     });
@@ -29,6 +31,7 @@ describe('parseWorkspaceSnapshot', () => {
       viewCount: 1,
       urls: ['https://example.net/'],
       serviceIds: [null],
+      visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
     });
@@ -49,6 +52,7 @@ describe('parseWorkspaceSnapshot', () => {
       viewCount: 3,
       urls: ['https://example.com/', 'https://example.org/', 'https://example.net/'],
       serviceIds: [null, null, null],
+      visibleIndices: [0, 1, 2],
       selectedIndex: 2,
       layout: 'primary-left',
     });
@@ -65,6 +69,12 @@ describe('parseWorkspaceSnapshot', () => {
         fallback,
       ),
     ).toMatchObject({ serviceIds: ['notebooklm'] });
+  });
+
+  it('keeps many tabs but restores at most four visible tabs', () => {
+    const urls = Array.from({ length: 8 }, (_, index) => `https://example.com/${index}`);
+    expect(parseWorkspaceSnapshot({ urls, visibleIndices: [0, 1, 2, 3, 4, 7] }, fallback))
+      .toMatchObject({ viewCount: 8, visibleIndices: [0, 1, 2, 3] });
   });
 
 });

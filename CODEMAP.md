@@ -137,6 +137,26 @@ Related tests:
 - `src/shared/comparison.test.ts`
 - `src/renderer/App.test.tsx`
 
+## Tab Visibility and Multi-tab Views
+
+Primary paths:
+- `src/shared/tab-visibility.ts`
+- `src/shared/workspace.ts`
+- `src/main/main.ts`
+- `src/renderer/App.tsx`
+
+Search keywords:
+- `isVisible`
+- `visibleIndices`
+- `tabVisibilityChannels`
+- `pane-headers`
+- `tabLabel`
+
+Related tests:
+- `src/shared/workspace.test.ts`
+- `src/main/workspace-store.test.ts`
+- `src/renderer/App.test.tsx`
+
 ## Shared Zoom
 
 Primary paths:

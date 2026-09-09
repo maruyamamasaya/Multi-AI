@@ -26,6 +26,7 @@ describe('workspace store', () => {
       viewCount: 1,
       urls: fallback,
       serviceIds: [null],
+      visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
     });
@@ -38,6 +39,7 @@ describe('workspace store', () => {
       viewCount: 1,
       urls: fallback,
       serviceIds: [null],
+      visibleIndices: [0],
       selectedIndex: 0,
       layout: 'single',
     });
@@ -49,6 +51,7 @@ describe('workspace store', () => {
       viewCount: 2,
       urls: ['https://example.com/', 'https://example.org/'],
       serviceIds: [null, null],
+      visibleIndices: [0, 1],
       selectedIndex: 1,
       layout: 'columns' as const,
     };

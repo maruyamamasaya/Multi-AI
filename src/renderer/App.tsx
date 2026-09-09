@@ -12,8 +12,17 @@ import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 import type { ZoomAction } from '../shared/zoom';
 
+type AnswerStatus = 'idle' | 'running' | 'completed' | 'failed';
+
+const answerStatusLabels: Record<AnswerStatus, string> = {
+  idle: '未実行',
+  running: '実行中',
+  completed: '完了',
+  failed: '失敗',
+};
+
 const initialStates: NavigationState[] = [
-  { viewId: 1, serviceId: null, url: 'https://example.com/', title: '', canGoBack: false, canGoForward: false, isLoading: true },
+  { viewId: 1, serviceId: null, url: 'https://example.com/', title: '', canGoBack: false, canGoForward: false, isLoading: true, isVisible: true },
 ];
 
 const NavigationBar = ({ disabled = false, state }: { disabled?: boolean; state: NavigationState }) => {
@@ -144,6 +153,7 @@ export const App = () => {
   const [promptResults, setPromptResults] = useState<PromptSendResult[]>([]);
   const [isSendingPrompt, setIsSendingPrompt] = useState(false);
   const [promptError, setPromptError] = useState('');
+  const [answerStatuses, setAnswerStatuses] = useState<Map<ViewId, AnswerStatus>>(new Map());
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [comparisonCandidates, setComparisonCandidates] = useState<PromptSendResult[]>([]);
   const [comparisonTargets, setComparisonTargets] = useState<Set<ViewId>>(new Set());
@@ -151,9 +161,18 @@ export const App = () => {
   const [comparisonError, setComparisonError] = useState('');
   const [zoomPercent, setZoomPercent] = useState(100);
   const [zoomError, setZoomError] = useState('');
+  const [tabError, setTabError] = useState('');
   const promptEligibility = useRef(new Map<ViewId, boolean>());
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
   const selectedBookmarkService = getAiServiceByUrl(selectedState?.url ?? '');
+  const visibleStates = states.filter(({ isVisible }) => isVisible);
+  const tabLabel = (state: NavigationState): string => {
+    const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
+    const matching = states.filter((candidate) =>
+      (getAiService(candidate.serviceId) ?? getAiServiceByUrl(candidate.url) ?? UNKNOWN_AI_SERVICE).id === service.id,
+    );
+    return matching.length > 1 ? `${service.name} ${matching.indexOf(state) + 1}` : service.name;
+  };
 
   useEffect(() => {
     const updateState = (next: NavigationState) => {
@@ -205,7 +224,7 @@ export const App = () => {
 
   useEffect(() => {
     const previousEligibility = promptEligibility.current;
-    const nextEligibility = new Map(states.map((state) => [state.viewId, Boolean(getAiServiceByUrl(state.url))]));
+    const nextEligibility = new Map(states.map((state) => [state.viewId, state.isVisible && Boolean(getAiServiceByUrl(state.url))]));
     setPromptTargets((current) => {
       const next = new Set([...current].filter((viewId) => nextEligibility.get(viewId)));
       states.forEach(({ viewId }) => {
@@ -232,18 +251,32 @@ export const App = () => {
     try {
       const next = await window.multiAI.addView(serviceId);
       setStates(next);
-      setSelectedViewId(next.at(-1)?.viewId ?? selectedViewId);
+      setSelectedViewId([...next].reverse().find(({ isVisible }) => isVisible)?.viewId ?? selectedViewId);
       await closeLauncher();
     } catch (reason) {
       setLauncherError(reason instanceof Error ? reason.message : '画面を追加できませんでした。');
     }
   };
 
-  const removeView = async () => {
-    const removedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
-    const next = await window.multiAI.removeView(selectedViewId);
+  const removeView = async (viewId: ViewId) => {
+    const removedIndex = states.findIndex((state) => state.viewId === viewId);
+    const next = await window.multiAI.removeView(viewId);
     setStates(next);
-    setSelectedViewId(next[Math.min(removedIndex, next.length - 1)].viewId);
+    if (viewId === selectedViewId) {
+      setSelectedViewId((next.find(({ isVisible }) => isVisible) ?? next[Math.min(removedIndex, next.length - 1)]).viewId);
+    }
+  };
+
+  const toggleTabVisibility = async (state: NavigationState) => {
+    setTabError('');
+    try {
+      const result = await window.multiAI.setTabVisibility(state.viewId, !state.isVisible);
+      const visibleIds = new Set(result.visibleViewIds);
+      setStates((current) => current.map((tab) => ({ ...tab, isVisible: visibleIds.has(tab.viewId) })));
+      setSelectedViewId(result.selectedViewId);
+    } catch (reason) {
+      setTabError(reason instanceof Error ? reason.message : 'タブの表示を変更できませんでした。');
+    }
   };
 
   const moveView = async (direction: ViewMoveDirection) => {
@@ -364,9 +397,27 @@ export const App = () => {
     setPromptError('');
     setPromptResults([]);
     setIsSendingPrompt(true);
+    setAnswerStatuses((current) => {
+      const next = new Map(current);
+      targetIds.forEach((viewId) => next.set(viewId, 'running'));
+      return next;
+    });
     try {
-      setPromptResults(await window.multiAI.sendPrompt(commonPrompt, targetIds));
+      const results = await window.multiAI.sendPrompt(commonPrompt, targetIds);
+      setPromptResults(results);
+      setAnswerStatuses((current) => {
+        const next = new Map(current);
+        results.forEach((result) => {
+          if (result.status === 'failure') next.set(result.viewId, 'failed');
+        });
+        return next;
+      });
     } catch (reason) {
+      setAnswerStatuses((current) => {
+        const next = new Map(current);
+        targetIds.forEach((viewId) => next.set(viewId, 'failed'));
+        return next;
+      });
       setPromptError(reason instanceof Error ? reason.message : '共通プロンプトを送信できませんでした。');
     } finally {
       setIsSendingPrompt(false);
@@ -374,9 +425,9 @@ export const App = () => {
   };
 
   const startComparison = async () => {
-    const candidates = promptResults.filter((result) => states.some(({ viewId }) => viewId === result.viewId));
+    const candidates = promptResults.filter((result) => visibleStates.some(({ viewId }) => viewId === result.viewId));
     if (candidates.length < 2) return;
-    const targetIds = candidates.map(({ viewId }) => viewId);
+    const targetIds = candidates.slice(0, 4).map(({ viewId }) => viewId);
     setComparisonError('');
     try {
       await window.multiAI.setComparisonLayout({ activeViewIds: targetIds, focusedViewId: null });
@@ -441,6 +492,13 @@ export const App = () => {
 
   if (!selectedState) return null;
   const selectedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
+  const paneStates = isComparisonMode
+    ? comparisonFocusedViewId === null
+      ? states.filter(({ viewId }) => comparisonTargets.has(viewId))
+      : states.filter(({ viewId }) => viewId === comparisonFocusedViewId)
+    : isFocusMode
+      ? states.filter(({ viewId }) => viewId === selectedViewId)
+      : visibleStates;
 
   return (
     <header className={`app-bar${isFocusMode ? ' focus-mode' : ''}`}>
@@ -451,9 +509,9 @@ export const App = () => {
             const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
             const isSelected = state.viewId === selectedViewId;
             return (
+              <div className={`view-tab${isSelected ? ' active' : ''}${state.isVisible ? '' : ' hidden'}`} key={state.viewId}>
               <button
-                key={state.viewId}
-                disabled={!isWorkspaceReady || isFocusMode || isComparisonMode}
+                disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || !state.isVisible}
                 className={isSelected ? 'active' : ''}
                 aria-current={isSelected ? 'page' : undefined}
                 aria-label={`画面 ${index + 1}: ${service.name}`}
@@ -461,13 +519,16 @@ export const App = () => {
               >
                 <span className="view-number">{index + 1}</span>
                 <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
-                <span className="view-service-name">{service.name}</span>
+                <span className="view-service-name">{tabLabel(state)}</span>
               </button>
+              <button className="tab-visibility" type="button" aria-label={`${tabLabel(state)}を${state.isVisible ? '非表示' : '表示'}`} disabled={isFocusMode || isComparisonMode || (state.isVisible ? visibleStates.length === 1 : visibleStates.length >= 4)} onClick={() => void toggleTabVisibility(state)}>{state.isVisible ? '●' : '○'}</button>
+              <button className="tab-close" type="button" aria-label={`${tabLabel(state)}を閉じる`} disabled={isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView(state.viewId)}>×</button>
+              </div>
             );
           })}
         </nav>
         <div className="workspace-actions">
-          <button aria-label="画面を減らす" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView()}>−</button>
+          <button aria-label="画面を減らす" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView(selectedViewId)}>−</button>
           <div className="reorder-actions" role="group" aria-label="画面の並び順">
             <button title="左へ移動" aria-label="選択中画面を左へ移動" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || selectedIndex <= 0} onClick={() => void moveView('left')}>‹</button>
             <button title="右へ移動" aria-label="選択中画面を右へ移動" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || selectedIndex >= states.length - 1} onClick={() => void moveView('right')}>›</button>
@@ -480,7 +541,7 @@ export const App = () => {
             disabled={!isWorkspaceReady || isComparisonMode || states.length === 1}
             onClick={() => void toggleFocusMode()}
           >{isFocusMode ? '⊞' : '⛶'}</button>
-          <button aria-label="画面を追加" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 4} onClick={() => void openLauncher()}>＋</button>
+          <button aria-label="画面を追加" title="新しいタブ" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 32} onClick={() => void openLauncher()}>＋</button>
         </div>
         <div className="zoom-actions" role="group" aria-label="全画面の表示倍率">
           <button aria-label="全画面を縮小" title="Zoom Out" disabled={zoomPercent <= 50} onClick={() => void changeZoom('out')}>−</button>
@@ -502,6 +563,7 @@ export const App = () => {
           <button aria-label="AI会話ブックマークを削除" disabled={!selectedBookmarkId || isComparisonMode} onClick={() => void removeBookmark()}>×</button>
         </div>
       </div>
+      {tabError ? <span className="tab-error" role="alert">{tabError}</span> : null}
       <div className="saved-workspace-row">
         <form className="workspace-save-form" aria-label="名前付きワークスペース保存" onSubmit={(event) => void saveNamedWorkspace(event)}>
           <input aria-label="ワークスペース名" value={workspaceName} maxLength={60} placeholder="ワークスペース名" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode} onChange={(event) => setWorkspaceName(event.target.value)} />
@@ -548,7 +610,8 @@ export const App = () => {
         <textarea aria-label="共通プロンプト" value={commonPrompt} maxLength={20000} placeholder="複数AIへ送るプロンプト" onChange={(event) => setCommonPrompt(event.target.value)} />
         <fieldset className="prompt-targets">
           <legend>送信先</legend>
-          {states.map((state, index) => {
+          {visibleStates.map((state) => {
+            const index = states.findIndex(({ viewId }) => viewId === state.viewId);
             const currentService = getAiServiceByUrl(state.url);
             const displayService = currentService ?? getAiService(state.serviceId) ?? UNKNOWN_AI_SERVICE;
             return (
@@ -569,11 +632,24 @@ export const App = () => {
             const service = getAiService(result.serviceId) ?? UNKNOWN_AI_SERVICE;
             return <span key={result.viewId} className={result.status} title={result.message}>画面 {index + 1} {service.name}: {result.status === 'success' ? '成功' : '失敗'}</span>;
           })}
-          {promptResults.filter((result) => states.some(({ viewId }) => viewId === result.viewId)).length >= 2 ? <button type="button" className="compare-button" onClick={() => void startComparison()}>回答を比較</button> : null}
+          {promptResults.filter((result) => visibleStates.some(({ viewId }) => viewId === result.viewId)).length >= 2 ? <button type="button" className="compare-button" onClick={() => void startComparison()}>回答を比較</button> : null}
           {promptError ? <span className="failure" role="alert">{promptError}</span> : null}
         </div>
       </form>}
       <NavigationBar state={selectedState} disabled={isComparisonMode} />
+      <div className={`pane-headers panes-${paneStates.length}`} aria-label="表示中タブ">
+        {paneStates.map((state) => {
+          const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
+          const answerStatus = answerStatuses.get(state.viewId) ?? 'idle';
+          return <div className="pane-header" key={state.viewId}>
+            <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
+            <strong>{tabLabel(state)}</strong>
+            <span className={`answer-status ${answerStatus}`} aria-label={`${tabLabel(state)}の回答状態: ${answerStatusLabels[answerStatus]}`}>
+              <span aria-hidden="true">●</span> {answerStatusLabels[answerStatus]}
+            </span>
+          </div>;
+        })}
+      </div>
       {isLauncherOpen ? <ServiceLauncher onCancel={closeLauncher} onSelect={addView} /> : null}
       {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}
       {bookmarkError ? <p className="bookmark-error" role="alert">{bookmarkError}</p> : null}

@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
 const states = [
-  { viewId: 1, serviceId: null, url: 'https://example.com/', title: 'Example', canGoBack: false, canGoForward: false, isLoading: false },
-  { viewId: 2, serviceId: null, url: 'https://example.org/', title: 'Example Org', canGoBack: false, canGoForward: false, isLoading: false },
+  { viewId: 1, serviceId: null, url: 'https://example.com/', title: 'Example', canGoBack: false, canGoForward: false, isLoading: false, isVisible: true },
+  { viewId: 2, serviceId: null, url: 'https://example.org/', title: 'Example Org', canGoBack: false, canGoForward: false, isLoading: false, isVisible: true },
 ];
 
 describe('App', () => {
@@ -39,6 +39,7 @@ describe('App', () => {
       setFocusMode: vi.fn().mockResolvedValue(undefined),
       setComparisonLayout: vi.fn().mockResolvedValue(undefined),
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
+      setTabVisibility: vi.fn().mockResolvedValue({ visibleViewIds: [1, 2], selectedViewId: 1 }),
       changeZoom: vi.fn().mockImplementation(async (action) => action === 'in' ? 110 : action === 'out' ? 90 : 100),
       startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
     };
@@ -79,7 +80,7 @@ describe('App', () => {
     expect(window.multiAI.addView).not.toHaveBeenCalled();
   });
 
-  it('keeps the four-view limit', async () => {
+  it('allows more than four tabs while keeping only four visible', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       ...states,
       { ...states[0], viewId: 3 },
@@ -87,9 +88,9 @@ describe('App', () => {
     ]);
     render(<App />);
     const addButton = screen.getByRole('button', { name: '画面を追加' });
-    await waitFor(() => expect(addButton).toBeDisabled());
+    await waitFor(() => expect(addButton).toBeEnabled());
     fireEvent.click(addButton);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('changes and resets the shared zoom from the toolbar', async () => {
@@ -363,6 +364,31 @@ describe('App', () => {
     expect(screen.getByText('画面 2 Perplexity: 成功')).toBeInTheDocument();
   });
 
+  it('shows conservative per-pane answer statuses without treating send success as completion', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/' },
+      { ...states[1], serviceId: 'perplexity', url: 'https://www.perplexity.ai/' },
+    ]);
+    let resolveSend!: (results: Awaited<ReturnType<typeof window.multiAI.sendPrompt>>) => void;
+    window.multiAI.sendPrompt = vi.fn().mockReturnValue(new Promise((resolve) => { resolveSend = resolve; }));
+    render(<App />);
+    expect(await screen.findByLabelText('ChatGPTの回答状態: 未実行')).toBeInTheDocument();
+    expect(screen.getByLabelText('Perplexityの回答状態: 未実行')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: '共通プロンプト' }), { target: { value: '状態確認' } });
+    fireEvent.click(screen.getByRole('button', { name: '選択したAIへ送信' }));
+    expect(await screen.findByLabelText('ChatGPTの回答状態: 実行中')).toBeInTheDocument();
+    expect(screen.getByLabelText('Perplexityの回答状態: 実行中')).toBeInTheDocument();
+
+    resolveSend([
+      { viewId: 1, serviceId: 'chatgpt', status: 'success', message: '送信操作を完了しました。' },
+      { viewId: 2, serviceId: 'perplexity', status: 'failure', message: '送信ボタンが見つかりません。' },
+    ]);
+    expect(await screen.findByLabelText('Perplexityの回答状態: 失敗')).toBeInTheDocument();
+    expect(screen.getByLabelText('ChatGPTの回答状態: 実行中')).toBeInTheDocument();
+    expect(screen.queryByLabelText('ChatGPTの回答状態: 完了')).not.toBeInTheDocument();
+  });
+
   it('compares sent views, excludes and restores a target, focuses, and exits', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/' },
@@ -404,6 +430,45 @@ describe('App', () => {
     ]);
     render(<App />);
     expect(await screen.findByRole('button', { name: '画面 1: NotebookLM' })).toHaveTextContent('NNotebookLM');
+  });
+
+  it('keeps many independent tabs, displays four, and labels duplicate AI panes', async () => {
+    const manyTabs = [
+      { ...states[0], viewId: 1, serviceId: 'chatgpt' as const, url: 'https://chatgpt.com/c/one' },
+      { ...states[0], viewId: 2, serviceId: 'chatgpt' as const, url: 'https://chatgpt.com/c/two' },
+      { ...states[0], viewId: 3, serviceId: 'chatgpt' as const, url: 'https://chatgpt.com/c/three' },
+      { ...states[0], viewId: 4, serviceId: 'claude' as const, url: 'https://claude.ai/chat/one' },
+      { ...states[0], viewId: 5, serviceId: 'gemini' as const, url: 'https://gemini.google.com/app', isVisible: false },
+      { ...states[0], viewId: 6, serviceId: 'perplexity' as const, url: 'https://www.perplexity.ai/', isVisible: false },
+    ];
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue(manyTabs);
+    render(<App />);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /画面 \d: / })).toHaveLength(6));
+    const headers = screen.getByLabelText('表示中タブ');
+    expect(headers.children).toHaveLength(4);
+    expect(headers).toHaveTextContent('ChatGPT 1');
+    expect(headers).toHaveTextContent('ChatGPT 2');
+    expect(headers).toHaveTextContent('ChatGPT 3');
+    expect(screen.getByRole('button', { name: 'Geminiを表示' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'ChatGPT 1を閉じる' })).toBeEnabled();
+  });
+
+  it('separates hiding from closing and can restore a hidden tab', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/c/one' },
+      { ...states[1], serviceId: 'claude', url: 'https://claude.ai/chat/one' },
+    ]);
+    window.multiAI.setTabVisibility = vi.fn()
+      .mockResolvedValueOnce({ visibleViewIds: [2], selectedViewId: 2 })
+      .mockResolvedValueOnce({ visibleViewIds: [1, 2], selectedViewId: 1 });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'ChatGPTを非表示' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを表示' })).toBeInTheDocument());
+    expect(window.multiAI.removeView).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを表示' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ChatGPTを非表示' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'ChatGPTを閉じる' }));
+    await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(1));
   });
 
 });

@@ -4,13 +4,13 @@
 
 ## System Overview
 
-Electron main processがデスクトップウィンドウと1～4個の `WebContentsView` を管理します。上部にはReact rendererの共通操作バー、下部には画面数に応じたWebページを表示します。preloadだけがElectron IPCへ接続し、rendererには限定した `window.multiAI` APIを公開します。
+Electron main processがデスクトップウィンドウと最大32個の独立した `WebContentsView` タブを管理し、そのうち1～4個を同時表示します。上部にはReact rendererの共通操作バー、各表示領域の先頭には28pxの識別ヘッダー、下部にはWebページを表示します。preloadだけがElectron IPCへ接続し、rendererには限定した `window.multiAI` APIを公開します。
 
 ```text
 Electron main
   ├─ BrowserWindow
   │    └─ React toolbar ← preload / contextBridge ← navigation IPC
-  ├─ WebContentsView × 1～4
+  ├─ WebContentsView tabs × 1～32（同時表示1～4）
   └─ userData/
        ├─ bookmarks.json
        ├─ named-workspaces.json

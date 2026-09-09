@@ -360,7 +360,7 @@ const registerIpcHandlers = (): void => {
     }
     const layout = parseComparisonLayout(input);
     layout.activeViewIds.forEach((viewId) => {
-      getPageView(viewId);
+      if (!getPageView(viewId).isVisible) throw new Error('表示中のタブだけ比較できます。');
     });
     const existingCandidates = comparisonLayout?.candidateViewIds;
     if (existingCandidates && layout.activeViewIds.some((viewId) => !existingCandidates.includes(viewId))) {
