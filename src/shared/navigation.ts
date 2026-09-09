@@ -17,6 +17,7 @@ export const navigationChannels = {
   add: 'view:add',
   back: 'view:back',
   forward: 'view:forward',
+  focus: 'view:set-focus-mode',
   getStates: 'view:get-states',
   navigate: 'view:navigate',
   move: 'view:move',

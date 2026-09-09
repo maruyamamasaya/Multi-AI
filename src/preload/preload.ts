@@ -41,5 +41,7 @@ contextBridge.exposeInMainWorld('multiAI', {
   reload: (viewId: ViewId): Promise<void> => ipcRenderer.invoke(navigationChannels.reload, viewId),
   selectView: (viewId: ViewId): Promise<void> =>
     ipcRenderer.invoke(workspaceChannels.selectView, viewId),
+  setFocusMode: (viewId: ViewId, focused: boolean): Promise<void> =>
+    ipcRenderer.invoke(navigationChannels.focus, viewId, focused),
   setLauncherOpen: (open: boolean): Promise<void> => ipcRenderer.invoke(launcherChannels.setOpen, open),
 });

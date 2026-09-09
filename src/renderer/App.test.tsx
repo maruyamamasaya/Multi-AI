@@ -26,6 +26,7 @@ describe('App', () => {
       removeBookmark: vi.fn().mockResolvedValue([]),
       removeView: vi.fn().mockResolvedValue([states[0]]),
       selectView: vi.fn().mockResolvedValue(undefined),
+      setFocusMode: vi.fn().mockResolvedValue(undefined),
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
     };
   });
@@ -82,6 +83,35 @@ describe('App', () => {
     window.multiAI.getSelectedViewId = vi.fn().mockResolvedValue(2);
     render(<App />);
     expect(await screen.findByRole('button', { name: '画面 2: AIサービス' })).toHaveClass('active');
+  });
+
+  it('toggles focus mode without changing the view order and locks layout actions', async () => {
+    render(<App />);
+    const focus = screen.getByRole('button', { name: '選択中画面を集中表示' });
+    await waitFor(() => expect(focus).toBeEnabled());
+    fireEvent.click(focus);
+    await waitFor(() => expect(window.multiAI.setFocusMode).toHaveBeenCalledWith(1, true));
+    expect(screen.getByRole('status')).toHaveTextContent('集中表示中');
+    expect(screen.getByRole('button', { name: '画面 1: AIサービス' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '画面を追加' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '画面を減らす' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '選択中画面を左へ移動' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '選択中画面を右へ移動' })).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: /画面 \d: AIサービス/ })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: '分割表示に戻す' }));
+    await waitFor(() => expect(window.multiAI.setFocusMode).toHaveBeenLastCalledWith(1, false));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '画面を追加' })).toBeEnabled();
+  });
+
+  it('disables focus mode when only one view exists', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([states[0]]);
+    render(<App />);
+    const focus = screen.getByRole('button', { name: '選択中画面を集中表示' });
+    await waitFor(() => expect(focus).toBeDisabled());
+    fireEvent.click(focus);
+    expect(window.multiAI.setFocusMode).not.toHaveBeenCalled();
   });
 
   it('moves the selected view left with its state and keeps it selected', async () => {

@@ -22,6 +22,9 @@ h1 { margin: 0; font-size: .9rem; }
 .reorder-actions { gap: 2px; padding: 0 3px; border-inline: 1px solid #303a34; }
 .workspace-actions button, .bookmark-actions button { min-width: 30px; cursor: pointer; }
 .reorder-actions button { min-width: 25px; font-size: 1.05rem; }
+.focus-button[aria-pressed="true"] { border-color: #91d8b5; color: #102018; background: #91d8b5; }
+.focus-status { flex: 0 0 auto; padding: 4px 7px; border: 1px solid #527363; border-radius: 999px; color: #b9efd5; background: #203128; font-size: .65rem; font-weight: 750; white-space: nowrap; }
+.app-bar.focus-mode { border-bottom-color: #527363; }
 button:disabled { opacity: .35; cursor: default; }
 .bookmark-actions select { width: 140px; padding: 0 6px; }
 .navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }

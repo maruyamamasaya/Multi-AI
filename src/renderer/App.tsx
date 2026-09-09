@@ -90,6 +90,7 @@ export const App = () => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [selectedBookmarkId, setSelectedBookmarkId] = useState('');
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
   const [launcherError, setLauncherError] = useState('');
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
 
@@ -158,6 +159,12 @@ export const App = () => {
     setStates(await window.multiAI.moveView(selectedViewId, direction));
   };
 
+  const toggleFocusMode = async () => {
+    const nextFocused = !isFocusMode;
+    await window.multiAI.setFocusMode(selectedViewId, nextFocused);
+    setIsFocusMode(nextFocused);
+  };
+
   const selectView = async (viewId: ViewId) => {
     setSelectedViewId(viewId);
     await window.multiAI.selectView(viewId);
@@ -181,7 +188,7 @@ export const App = () => {
   const selectedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
 
   return (
-    <header className="app-bar">
+    <header className={`app-bar${isFocusMode ? ' focus-mode' : ''}`}>
       <div className="workspace-row">
         <div className="brand"><span className="brand-mark">M</span><h1>Multi-AI</h1></div>
         <nav className="view-tabs" aria-label="画面選択">
@@ -191,7 +198,7 @@ export const App = () => {
             return (
               <button
                 key={state.viewId}
-                disabled={!isWorkspaceReady}
+                disabled={!isWorkspaceReady || isFocusMode}
                 className={isSelected ? 'active' : ''}
                 aria-current={isSelected ? 'page' : undefined}
                 aria-label={`画面 ${index + 1}: ${service.name}`}
@@ -205,13 +212,22 @@ export const App = () => {
           })}
         </nav>
         <div className="workspace-actions">
-          <button aria-label="画面を減らす" disabled={!isWorkspaceReady || states.length === 1} onClick={() => void removeView()}>−</button>
+          <button aria-label="画面を減らす" disabled={!isWorkspaceReady || isFocusMode || states.length === 1} onClick={() => void removeView()}>−</button>
           <div className="reorder-actions" role="group" aria-label="画面の並び順">
-            <button title="左へ移動" aria-label="選択中画面を左へ移動" disabled={!isWorkspaceReady || selectedIndex <= 0} onClick={() => void moveView('left')}>‹</button>
-            <button title="右へ移動" aria-label="選択中画面を右へ移動" disabled={!isWorkspaceReady || selectedIndex >= states.length - 1} onClick={() => void moveView('right')}>›</button>
+            <button title="左へ移動" aria-label="選択中画面を左へ移動" disabled={!isWorkspaceReady || isFocusMode || selectedIndex <= 0} onClick={() => void moveView('left')}>‹</button>
+            <button title="右へ移動" aria-label="選択中画面を右へ移動" disabled={!isWorkspaceReady || isFocusMode || selectedIndex >= states.length - 1} onClick={() => void moveView('right')}>›</button>
           </div>
-          <button aria-label="画面を追加" disabled={!isWorkspaceReady || states.length === 4} onClick={() => void openLauncher()}>＋</button>
+          <button
+            className="focus-button"
+            title={isFocusMode ? '分割表示に戻す' : '選択中画面を集中表示'}
+            aria-label={isFocusMode ? '分割表示に戻す' : '選択中画面を集中表示'}
+            aria-pressed={isFocusMode}
+            disabled={!isWorkspaceReady || states.length === 1}
+            onClick={() => void toggleFocusMode()}
+          >{isFocusMode ? '⊞' : '⛶'}</button>
+          <button aria-label="画面を追加" disabled={!isWorkspaceReady || isFocusMode || states.length === 4} onClick={() => void openLauncher()}>＋</button>
         </div>
+        {isFocusMode ? <span className="focus-status" role="status">集中表示中</span> : null}
         <div className="bookmark-actions">
           <button aria-label="現在のページをブックマーク" onClick={() => void addBookmark()}>☆</button>
           <select aria-label="ブックマーク" value={selectedBookmarkId} onChange={(event) => setSelectedBookmarkId(event.target.value)}>

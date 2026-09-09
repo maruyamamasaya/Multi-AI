@@ -23,6 +23,7 @@ declare global {
       removeView: (viewId: ViewId) => Promise<NavigationState[]>;
       reload: (viewId: ViewId) => Promise<void>;
       selectView: (viewId: ViewId) => Promise<void>;
+      setFocusMode: (viewId: ViewId, focused: boolean) => Promise<void>;
       setLauncherOpen: (open: boolean) => Promise<void>;
     };
   }

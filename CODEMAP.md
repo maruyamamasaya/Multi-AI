@@ -51,6 +51,8 @@ Search keywords:
 - `addView`
 - `removeView`
 - `moveView`
+- `focusedViewId`
+- `setFocusMode`
 - `setPermissionRequestHandler`
 - `setWindowOpenHandler`
 
@@ -58,6 +60,7 @@ Key entry points:
 - `createPageView`
 - `attachPageViews`
 - `moveView`
+- `updateViewBounds`
 
 Related tests:
 - `src/main/layout.test.ts`

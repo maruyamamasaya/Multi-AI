@@ -44,6 +44,7 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 
 - `createMainWindow`: 安全なwebPreferencesで `BrowserWindow` を生成する。
 - `addView` / `removeView` / `moveView`: 1～4個の外部ビューを追加し、選択中画面を削除し、ビュー単位で左右へ並び替える。
+- `updateViewBounds`: 通常時の分割配置と集中表示時の単一ビュー配置・可視性を切り替える。
 - `AI_SERVICES` / `ServiceLauncher`: 対応AIの識別子・表示名・アイコン・URL・判定ホストを一元管理し、画面追加前の選択UIを提供する。
 - `calculateViewBounds`: 画面数に応じて全画面、2分割、3分割、2×2を計算する。
 - `registerIpcHandlers`: ビューIDを検証し、URL移動と履歴操作を処理する。
@@ -57,6 +58,8 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 mainは起動時に `workspace.json` を検証して画面数、URL、選択位置、分割レイアウトを復元します。追加・削除・URL移動・選択変更と終了時に最新snapshotを書き込みます。保存データがない、壊れている、危険なURLを含む場合は安全な既定の1画面へ戻します。全ビューを管理配列へ登録して選択状態と配置を確定してからURLロードを開始し、復元中のロードイベントが未初期化状態を参照しないようにします。
 
 並び替えは `PageView` オブジェクトを配列内で交換してから全ビューのboundsを再計算します。WebContents、URL、サービスID、履歴は同じオブジェクトに残り、選択状態はビューIDで維持されます。交換後の配列順と選択位置をworkspaceへ保存します。
+
+集中表示は選択中の `WebContentsView` だけを表示領域全体へ広げ、他のビューは破棄せず一時的に非表示にします。解除時は同じ配列順から分割boundsを再計算するため、URL、AIサービス、履歴、ページ内状態、選択状態を維持します。集中表示はプロセス内だけの一時状態で `workspace.json` には含めず、再起動時は通常の分割表示に戻します。集中表示中は追加・削除・並び替え・別画面選択をrendererとmainの両方で抑止します。
 
 画面追加時はrendererのランチャーが `src/shared/ai-services.ts` の候補を表示し、選択したサービスIDだけをmainへ渡します。mainは同じ定義からIDを検証して対応URLを開きます。ランチャー表示中は外部 `WebContentsView` を一時的に隠し、キャンセル時はビューや保存状態を変更せず再表示します。
 

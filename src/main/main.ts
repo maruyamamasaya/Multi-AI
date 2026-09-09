@@ -41,6 +41,7 @@ let selectedViewId: ViewId | null = null;
 let workspaceWriteQueue = Promise.resolve();
 let isRestoringWorkspace = false;
 let isLauncherOpen = false;
+let focusedViewId: ViewId | null = null;
 
 const getPageView = (viewId: unknown): PageView => {
   if (!Number.isInteger(viewId)) throw new Error('対象のビューが見つかりません。');
@@ -80,8 +81,29 @@ const persistWorkspace = (): Promise<void> => {
 const updateViewBounds = (): void => {
   if (!mainWindow) return;
   const { width, height } = mainWindow.getContentBounds();
+  if (isLauncherOpen) {
+    pageViews.forEach(({ view }) => view.setVisible(false));
+    return;
+  }
+  if (focusedViewId !== null) {
+    pageViews.forEach(({ id, view }) => {
+      const isFocused = id === focusedViewId;
+      view.setVisible(isFocused);
+      if (isFocused) {
+        view.setBounds({ x: 0, y: TOOLBAR_HEIGHT, width, height: Math.max(0, height - TOOLBAR_HEIGHT) });
+      }
+    });
+    return;
+  }
   const bounds = calculateViewBounds(pageViews.length, width, height, TOOLBAR_HEIGHT);
-  pageViews.forEach(({ view }, index) => view.setBounds(bounds[index]));
+  pageViews.forEach(({ view }, index) => {
+    view.setVisible(true);
+    view.setBounds(bounds[index]);
+  });
+};
+
+const ensureSplitMode = (): void => {
+  if (focusedViewId !== null) throw new Error('集中表示を解除してから画面を変更してください。');
 };
 
 const createPageView = (
@@ -124,6 +146,7 @@ const createPageView = (
 };
 
 const addView = async (serviceId: unknown): Promise<NavigationState[]> => {
+  ensureSplitMode();
   if (pageViews.length >= MAX_VIEWS) throw new Error('画面は4つまで追加できます。');
   const service = getAiService(serviceId);
   if (!service) throw new Error('AIサービスを選択してください。');
@@ -138,6 +161,7 @@ const addView = async (serviceId: unknown): Promise<NavigationState[]> => {
 };
 
 const removeView = async (viewId: unknown): Promise<NavigationState[]> => {
+  ensureSplitMode();
   if (pageViews.length === 1) throw new Error('少なくとも1つの画面が必要です。');
   const pageView = getPageView(viewId);
   const removedIndex = pageViews.indexOf(pageView);
@@ -156,6 +180,7 @@ const moveView = async (
   viewId: unknown,
   direction: unknown,
 ): Promise<NavigationState[]> => {
+  ensureSplitMode();
   const pageView = getPageView(viewId);
   if (direction !== 'left' && direction !== 'right') {
     throw new Error('画面の移動方向が不正です。');
@@ -215,15 +240,33 @@ const registerIpcHandlers = (): void => {
   ipcMain.handle(navigationChannels.reload, (_event, viewId: unknown) => {
     getPageView(viewId).view.webContents.reload();
   });
+  ipcMain.handle(navigationChannels.focus, (_event, viewId: unknown, focused: unknown) => {
+    if (typeof focused !== 'boolean') throw new Error('集中表示の状態が不正です。');
+    const pageView = getPageView(viewId);
+    if (focused) {
+      if (pageViews.length === 1) return;
+      if (isLauncherOpen) throw new Error('ランチャーを閉じてから集中表示にしてください。');
+      focusedViewId = pageView.id;
+    } else {
+      if (focusedViewId !== pageView.id) throw new Error('集中表示中の画面が一致しません。');
+      focusedViewId = null;
+    }
+    updateViewBounds();
+  });
   ipcMain.handle(workspaceChannels.getSelectedViewId, () => selectedViewId);
   ipcMain.handle(workspaceChannels.selectView, async (_event, viewId: unknown) => {
-    selectedViewId = getPageView(viewId).id;
+    const pageView = getPageView(viewId);
+    if (focusedViewId !== null && focusedViewId !== pageView.id) {
+      throw new Error('集中表示を解除してから別の画面を選択してください。');
+    }
+    selectedViewId = pageView.id;
     await persistWorkspace();
   });
   ipcMain.handle(launcherChannels.setOpen, (_event, open: unknown) => {
     if (typeof open !== 'boolean') throw new Error('ランチャーの状態が不正です。');
+    if (open) ensureSplitMode();
     isLauncherOpen = open;
-    pageViews.forEach(({ view }) => view.setVisible(!open));
+    updateViewBounds();
   });
 
   ipcMain.handle(bookmarkChannels.getAll, readBookmarks);
@@ -269,6 +312,7 @@ const createMainWindow = (workspace: WorkspaceSnapshot): BrowserWindow => {
   });
   mainWindow = window;
   isLauncherOpen = false;
+  focusedViewId = null;
   void window.loadFile(path.join(__dirname, '../../dist-renderer/index.html'));
   isRestoringWorkspace = true;
   pageViews = workspace.urls.map((url, index) =>
