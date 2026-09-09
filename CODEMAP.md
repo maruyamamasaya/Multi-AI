@@ -206,6 +206,8 @@ Search keywords:
 - `updateBookmark`
 - `BookmarkManager`
 - `managerSetOpen`
+- `managerOpenRequested`
+- `createJapaneseApplicationMenu`
 
 Key entry points:
 - bookmark IPC handlers in `registerIpcHandlers`

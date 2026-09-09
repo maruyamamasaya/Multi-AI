@@ -27,6 +27,7 @@ declare global {
       moveView: (viewId: ViewId, direction: ViewMoveDirection) => Promise<NavigationState[]>;
       loadNamedWorkspace: (workspaceId: string) => Promise<NamedWorkspaceLoadResult>;
       openBookmark: (viewId: ViewId, bookmarkId: string) => Promise<void>;
+      onBookmarkManagerOpenRequested: (listener: () => void) => () => void;
       onNavigationState: (listener: (state: NavigationState) => void) => () => void;
       ping: () => Promise<string>;
       removeBookmark: (bookmarkId: string) => Promise<Bookmark[]>;

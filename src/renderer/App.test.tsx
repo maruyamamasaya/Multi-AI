@@ -27,6 +27,7 @@ describe('App', () => {
       moveView: vi.fn().mockResolvedValue([states[1], states[0]]),
       loadNamedWorkspace: vi.fn().mockResolvedValue({ states: [states[1], states[0]], selectedViewId: 2 }),
       onNavigationState: vi.fn().mockReturnValue(vi.fn()),
+      onBookmarkManagerOpenRequested: vi.fn().mockReturnValue(vi.fn()),
       openBookmark: vi.fn().mockResolvedValue(undefined),
       ping: vi.fn().mockResolvedValue('pong'),
       reload: vi.fn().mockResolvedValue(undefined),

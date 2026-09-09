@@ -10,7 +10,14 @@ const editSubmenu: MenuItemConstructorOptions[] = [
   { label: 'すべて選択', role: 'selectAll' },
 ];
 
-export const createJapaneseApplicationMenu = (platform = process.platform): MenuItemConstructorOptions[] => [
+export interface ApplicationMenuActions {
+  openBookmarkManager?: () => void;
+}
+
+export const createJapaneseApplicationMenu = (
+  platform = process.platform,
+  actions: ApplicationMenuActions = {},
+): MenuItemConstructorOptions[] => [
   ...(platform === 'darwin' ? [{
     label: 'Multi-AI',
     submenu: [
@@ -26,8 +33,16 @@ export const createJapaneseApplicationMenu = (platform = process.platform): Menu
   {
     label: 'ファイル',
     submenu: platform === 'darwin'
-      ? [{ label: 'ウィンドウを閉じる', role: 'close' }]
-      : [{ label: '終了', role: 'quit' }],
+      ? [
+          { label: 'AI会話管理…', accelerator: 'CmdOrCtrl+Shift+B', click: actions.openBookmarkManager },
+          { type: 'separator' },
+          { label: 'ウィンドウを閉じる', role: 'close' },
+        ]
+      : [
+          { label: 'AI会話管理…', accelerator: 'CmdOrCtrl+Shift+B', click: actions.openBookmarkManager },
+          { type: 'separator' },
+          { label: '終了', role: 'quit' },
+        ],
   },
   { label: '編集', submenu: editSubmenu },
   {

@@ -54,6 +54,11 @@ contextBridge.exposeInMainWorld('multiAI', {
     ipcRenderer.on(navigationChannels.stateChanged, handler);
     return () => ipcRenderer.removeListener(navigationChannels.stateChanged, handler);
   },
+  onBookmarkManagerOpenRequested: (listener: () => void): (() => void) => {
+    const handler = () => listener();
+    ipcRenderer.on(bookmarkChannels.managerOpenRequested, handler);
+    return () => ipcRenderer.removeListener(bookmarkChannels.managerOpenRequested, handler);
+  },
   ping: (): Promise<string> => ipcRenderer.invoke('app:ping'),
   removeBookmark: (bookmarkId: string): Promise<Bookmark[]> =>
     ipcRenderer.invoke(bookmarkChannels.remove, bookmarkId),

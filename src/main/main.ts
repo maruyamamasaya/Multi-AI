@@ -658,7 +658,9 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
 };
 
 app.whenReady().then(async () => {
-  Menu.setApplicationMenu(Menu.buildFromTemplate(createJapaneseApplicationMenu()));
+  Menu.setApplicationMenu(Menu.buildFromTemplate(createJapaneseApplicationMenu(process.platform, {
+    openBookmarkManager: () => mainWindow?.webContents.send(bookmarkChannels.managerOpenRequested),
+  })));
   const isManagedPageView = (webContents: Electron.WebContents | null): boolean =>
     webContents !== null && pageViews.some(({ view }) => view.webContents === webContents);
   session.defaultSession.setPermissionCheckHandler((webContents, permission) =>

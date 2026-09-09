@@ -17,6 +17,7 @@ export interface BookmarkUpdate {
 export const bookmarkChannels = {
   add: 'bookmark:add',
   getAll: 'bookmark:get-all',
+  managerOpenRequested: 'bookmark:manager-open-requested',
   managerSetOpen: 'bookmark:manager-set-open',
   open: 'bookmark:open',
   remove: 'bookmark:remove',

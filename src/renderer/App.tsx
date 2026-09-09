@@ -13,6 +13,7 @@ import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navig
 import type { ZoomAction } from '../shared/zoom';
 import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH } from '../shared/pane-layout';
 import { ja } from '../shared/locales/ja';
+import { parseUiTheme, UI_THEMES, UI_THEME_STORAGE_KEY, type UiThemeId } from '../shared/themes';
 import { BookmarkManager } from './BookmarkManager';
 
 type AnswerStatus = 'idle' | 'running' | 'completed' | 'failed';
@@ -135,6 +136,13 @@ const StartupWorkspaceSelector = ({
 );
 
 export const App = () => {
+  const [uiTheme, setUiTheme] = useState<UiThemeId>(() => {
+    try {
+      return parseUiTheme(window.localStorage.getItem(UI_THEME_STORAGE_KEY));
+    } catch {
+      return 'default';
+    }
+  });
   const [states, setStates] = useState(initialStates);
   const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
   const [selectedViewId, setSelectedViewId] = useState<ViewId>(1);
@@ -183,10 +191,27 @@ export const App = () => {
   };
 
   useEffect(() => {
+    document.documentElement.dataset.theme = uiTheme;
+    try {
+      window.localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme);
+    } catch {
+      // The theme still applies for this session when storage is unavailable.
+    }
+  }, [uiTheme]);
+
+  useEffect(() => {
     const updateState = (next: NavigationState) => {
       setStates((current) => current.map((state) => (state.viewId === next.viewId ? next : state)));
     };
     const unsubscribe = window.multiAI.onNavigationState(updateState);
+    const unsubscribeBookmarkManager = window.multiAI.onBookmarkManagerOpenRequested(() => {
+      setBookmarkError('');
+      void window.multiAI.setBookmarkManagerOpen(true)
+        .then(() => setIsBookmarkManagerOpen(true))
+        .catch((reason: unknown) => {
+          setBookmarkError(reason instanceof Error ? reason.message : 'AI会話管理を開けませんでした。');
+        });
+    });
     void Promise.all([
       window.multiAI.getNavigationStates(),
       window.multiAI.getSelectedViewId(),
@@ -218,7 +243,10 @@ export const App = () => {
           setStartupError('起動ワークスペースを確認できませんでした。');
         }
       });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      unsubscribeBookmarkManager();
+    };
   }, []);
 
   useEffect(() => {
@@ -639,6 +667,13 @@ export const App = () => {
           <button aria-label="全画面を拡大" title={ja.zoom.in} disabled={zoomPercent >= 200} onClick={() => void changeZoom('in')}>＋</button>
           {zoomError ? <span className="zoom-error" role="alert">{zoomError}</span> : null}
         </div>
+        <label className="theme-control" title="UIテーマを切り替える">
+          <span aria-hidden="true">◈</span>
+          <span className="sr-only">UIテーマ</span>
+          <select aria-label="UIテーマ" value={uiTheme} onChange={(event) => setUiTheme(parseUiTheme(event.target.value))}>
+            {UI_THEMES.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
+          </select>
+        </label>
         {isFocusMode ? <span className="focus-status" role="status">集中表示中</span> : null}
         <div className="bookmark-actions">
           <button aria-label="現在のAI会話を保存" title={selectedBookmarkService ? '現在のAI会話を保存' : '対応AIサービスのページだけ保存できます'} disabled={!selectedBookmarkService || isComparisonMode} onClick={() => void addBookmark()}>☆</button>
