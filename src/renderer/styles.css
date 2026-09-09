@@ -3,6 +3,11 @@
 body { margin: 0; min-width: 720px; min-height: 100vh; }
 button, input, select { font: inherit; }
 .app-bar { height: 250px; border-bottom: 1px solid #303a34; background: #171d19; }
+.header-toggle { position: fixed; z-index: 20; top: 250px; right: 8px; height: 28px; padding: 0 10px; border: 1px solid #65746c; border-radius: 0 0 7px 7px; color: #e7ece9; background: #26312b; font-size: .68rem; font-weight: 700; cursor: pointer; }
+.header-toggle:hover, .header-toggle:focus-visible { border-color: #91d8b5; outline: none; background: #304138; }
+.app-bar.collapsed { height: 0; border: 0; background: transparent; }
+.app-bar.collapsed > :not(.header-toggle) { display: none; }
+.app-bar.collapsed .header-toggle { top: 0; border-radius: 0 0 7px 7px; }
 .workspace-row, .saved-workspace-row, .workspace-save-form, .workspace-library-actions, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .zoom-actions, .bookmark-actions { display: flex; align-items: center; }
 .workspace-row { height: 58px; gap: 14px; padding: 0 14px; }
 .brand { gap: 8px; }

@@ -6,6 +6,8 @@
 
 Electron main processがデスクトップウィンドウと最大32個の独立した `WebContentsView` タブを管理し、そのうち1～6個を同時表示します。上部にはReact rendererの共通操作バー、各表示領域の先頭には28pxの識別ヘッダー、下部にはWebページを表示します。preloadだけがElectron IPCへ接続し、rendererには限定した `window.multiAI` APIを公開します。
 
+外部ページのWeb権限はdefaultSessionで拒否を基本とし、Multi-AIが管理する `WebContentsView` に限って `clipboard-sanitized-write` だけを許可します。これにより各AIサービスのコピーボタンは動作させつつ、クリップボード読み取り、カメラ、マイク、位置情報などは許可しません。renderer UIや管理外WebContentsからの要求も拒否します。
+
 ```text
 Electron main
   ├─ BrowserWindow

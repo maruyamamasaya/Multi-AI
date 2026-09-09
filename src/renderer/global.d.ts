@@ -41,6 +41,7 @@ declare global {
       setLauncherOpen: (open: boolean) => Promise<void>;
       setTabVisibility: (viewId: ViewId, visible: boolean) => Promise<TabVisibilityResult>;
       setPaneScrollOffset: (offset: number) => Promise<void>;
+      setHeaderCollapsed: (collapsed: boolean) => Promise<void>;
       changeZoom: (action: ZoomAction) => Promise<number>;
       startWorkspace: (selection: StartupWorkspaceSelection) => Promise<NamedWorkspaceLoadResult>;
     };

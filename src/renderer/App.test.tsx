@@ -41,9 +41,24 @@ describe('App', () => {
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
       setTabVisibility: vi.fn().mockResolvedValue({ visibleViewIds: [1, 2], selectedViewId: 1 }),
       setPaneScrollOffset: vi.fn().mockResolvedValue(undefined),
+      setHeaderCollapsed: vi.fn().mockResolvedValue(undefined),
       changeZoom: vi.fn().mockImplementation(async (action) => action === 'in' ? 110 : action === 'out' ? 90 : 100),
       startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
     };
+  });
+
+  it('hides and restores the common header without changing page state', async () => {
+    render(<App />);
+    const hide = await screen.findByRole('button', { name: 'ヘッダーを隠す' });
+    fireEvent.click(hide);
+    await waitFor(() => expect(window.multiAI.setHeaderCollapsed).toHaveBeenCalledWith(true));
+    expect(screen.getByRole('button', { name: 'ヘッダーを表示' })).toBeInTheDocument();
+    expect(window.multiAI.reload).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'ヘッダーを表示' }));
+    await waitFor(() => expect(window.multiAI.setHeaderCollapsed).toHaveBeenLastCalledWith(false));
+    expect(screen.getByRole('button', { name: 'ヘッダーを隠す' })).toBeInTheDocument();
+    expect(window.multiAI.reload).not.toHaveBeenCalled();
   });
 
   it('opens the launcher and adds the selected AI in a new view', async () => {

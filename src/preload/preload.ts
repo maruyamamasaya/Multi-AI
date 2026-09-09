@@ -20,6 +20,7 @@ import { comparisonChannels, type ComparisonLayoutState } from '../shared/compar
 import { zoomChannels, type ZoomAction } from '../shared/zoom';
 import { tabVisibilityChannels, type TabVisibilityResult } from '../shared/tab-visibility';
 import { paneLayoutChannels } from '../shared/pane-layout';
+import { headerLayoutChannels } from '../shared/header-layout';
 
 contextBridge.exposeInMainWorld('multiAI', {
   addBookmark: (viewId: ViewId): Promise<Bookmark[]> =>
@@ -78,5 +79,7 @@ contextBridge.exposeInMainWorld('multiAI', {
     ipcRenderer.invoke(tabVisibilityChannels.set, viewId, visible),
   setPaneScrollOffset: (offset: number): Promise<void> =>
     ipcRenderer.invoke(paneLayoutChannels.setScrollOffset, offset),
+  setHeaderCollapsed: (collapsed: boolean): Promise<void> =>
+    ipcRenderer.invoke(headerLayoutChannels.setCollapsed, collapsed),
   changeZoom: (action: ZoomAction): Promise<number> => ipcRenderer.invoke(zoomChannels.change, action),
 });

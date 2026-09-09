@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, WebContentsView } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, session, WebContentsView } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,6 +29,7 @@ import {
 import { normalizePrompt, parsePromptTargets, promptChannels, type PromptSendResult } from '../shared/prompt';
 import { nextZoomPercent, parseZoomAction, zoomChannels } from '../shared/zoom';
 import { tabVisibilityChannels, type TabVisibilityResult } from '../shared/tab-visibility';
+import { COLLAPSED_HEADER_HEIGHT, EXPANDED_HEADER_HEIGHT, headerLayoutChannels } from '../shared/header-layout';
 import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH, paneLayoutChannels } from '../shared/pane-layout';
 import {
   workspaceChannels,
@@ -36,12 +37,13 @@ import {
   type WorkspaceSnapshot,
 } from '../shared/workspace';
 import { calculateViewBounds } from './layout';
+import { createJapaneseApplicationMenu } from './application-menu';
 import { readNamedWorkspaceFile, writeNamedWorkspaceFile } from './named-workspace-store';
+import { shouldGrantWebPermission } from './permission-policy';
 import { promptAdapters } from './prompt-adapters';
 import type { AdapterExecutionResult } from './prompt-adapters/types';
 import { readWorkspaceSnapshot, writeWorkspaceSnapshot } from './workspace-store';
 
-const TOOLBAR_HEIGHT = 278;
 const DEFAULT_URLS = ['https://example.com/'] as const;
 const MAX_TABS = 32;
 
@@ -67,6 +69,9 @@ let comparisonLayout: (ComparisonLayoutState & { candidateViewIds: ViewId[] }) |
 let zoomPercent = 100;
 let zoomWriteQueue = Promise.resolve();
 let paneScrollOffset = 0;
+let isHeaderCollapsed = false;
+
+const getHeaderHeight = (): number => isHeaderCollapsed ? COLLAPSED_HEADER_HEIGHT : EXPANDED_HEADER_HEIGHT;
 
 const applyZoomToAllViews = async (): Promise<void> => {
   for (const { view } of pageViews) {
@@ -127,7 +132,7 @@ const updateViewBounds = (): void => {
     const visibleIds = comparisonLayout.focusedViewId === null
       ? comparisonLayout.activeViewIds
       : [comparisonLayout.focusedViewId];
-    const bounds = calculateViewBounds(visibleIds.length, width, height, TOOLBAR_HEIGHT);
+    const bounds = calculateViewBounds(visibleIds.length, width, height, getHeaderHeight());
     pageViews.forEach(({ id, view }) => {
       const visibleIndex = visibleIds.indexOf(id);
       view.setVisible(visibleIndex >= 0);
@@ -140,7 +145,8 @@ const updateViewBounds = (): void => {
       const isFocused = id === focusedViewId;
       view.setVisible(isFocused);
       if (isFocused) {
-        view.setBounds({ x: 0, y: TOOLBAR_HEIGHT, width, height: Math.max(0, height - TOOLBAR_HEIGHT) });
+        const headerHeight = getHeaderHeight();
+        view.setBounds({ x: 0, y: headerHeight, width, height: Math.max(0, height - headerHeight) });
       }
     });
     return;
@@ -150,7 +156,7 @@ const updateViewBounds = (): void => {
     visiblePageViews.length,
     width,
     height,
-    TOOLBAR_HEIGHT,
+    getHeaderHeight(),
     MINIMUM_PANE_WIDTH,
     paneScrollOffset,
   );
@@ -347,6 +353,11 @@ const sendCommonPrompt = async (input: unknown, targetInput: unknown): Promise<P
 };
 
 const registerIpcHandlers = (): void => {
+  ipcMain.handle(headerLayoutChannels.setCollapsed, (_event, collapsed: unknown) => {
+    if (typeof collapsed !== 'boolean') throw new Error('ヘッダーの表示状態が正しくありません。');
+    isHeaderCollapsed = collapsed;
+    updateViewBounds();
+  });
   ipcMain.handle('app:ping', () => 'pong');
   ipcMain.handle(zoomChannels.get, () => zoomPercent);
   ipcMain.handle(zoomChannels.change, async (_event, input: unknown) => {
@@ -588,6 +599,7 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
   focusedViewId = null;
   comparisonLayout = null;
   paneScrollOffset = 0;
+  isHeaderCollapsed = false;
   isStartupSelectionOpen = showStartupSelection;
   void window.loadFile(path.join(__dirname, '../../dist-renderer/index.html'));
   isRestoringWorkspace = true;
@@ -620,8 +632,15 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
 };
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(createJapaneseApplicationMenu()));
+  const isManagedPageView = (webContents: Electron.WebContents | null): boolean =>
+    webContents !== null && pageViews.some(({ view }) => view.webContents === webContents);
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) =>
+    shouldGrantWebPermission(permission, isManagedPageView(webContents)),
+  );
   session.defaultSession.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => callback(false),
+    (webContents, permission, callback) =>
+      callback(shouldGrantWebPermission(permission, isManagedPageView(webContents))),
   );
   registerIpcHandlers();
   const [workspace, namedWorkspaceFile] = await Promise.all([

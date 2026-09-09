@@ -12,6 +12,7 @@ import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 import type { ZoomAction } from '../shared/zoom';
 import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH } from '../shared/pane-layout';
+import { ja } from '../shared/locales/ja';
 
 type AnswerStatus = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -77,7 +78,7 @@ const ServiceLauncher = ({
     <section className="service-launcher" role="dialog" aria-modal="true" aria-labelledby="launcher-title">
       <div className="launcher-heading">
         <div>
-          <p className="launcher-eyebrow">NEW VIEW</p>
+          <p className="launcher-eyebrow">{ja.launcher.newView}</p>
           <h2 id="launcher-title">AIサービスを選択</h2>
           <p>新しい画面で使うサービスを選んでください。</p>
         </div>
@@ -107,7 +108,7 @@ const StartupWorkspaceSelector = ({
 }) => (
   <div className="launcher-backdrop startup-backdrop">
     <section className="startup-selector" role="dialog" aria-modal="true" aria-labelledby="startup-title">
-      <p className="launcher-eyebrow">START WORKSPACE</p>
+      <p className="launcher-eyebrow">{ja.launcher.startWorkspace}</p>
       <h2 id="startup-title">開始するワークスペース</h2>
       <p className="startup-description">使う構成を1つ選んでください。</p>
       <div className="startup-options">
@@ -163,6 +164,7 @@ export const App = () => {
   const [zoomPercent, setZoomPercent] = useState(100);
   const [zoomError, setZoomError] = useState('');
   const [tabError, setTabError] = useState('');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const paneHeadersRef = useRef<HTMLDivElement>(null);
   const promptEligibility = useRef(new Map<ViewId, boolean>());
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
@@ -499,6 +501,12 @@ export const App = () => {
     }
   };
 
+  const toggleHeader = async () => {
+    const collapsed = !isHeaderCollapsed;
+    await window.multiAI.setHeaderCollapsed(collapsed);
+    setIsHeaderCollapsed(collapsed);
+  };
+
   if (!selectedState) return null;
   const selectedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
   const paneStates = isComparisonMode
@@ -510,7 +518,15 @@ export const App = () => {
       : visibleStates;
 
   return (
-    <header className={`app-bar${isFocusMode ? ' focus-mode' : ''}`}>
+    <header className={`app-bar${isFocusMode ? ' focus-mode' : ''}${isHeaderCollapsed ? ' collapsed' : ''}`}>
+      <button
+        type="button"
+        className="header-toggle"
+        aria-expanded={!isHeaderCollapsed}
+        aria-label={isHeaderCollapsed ? 'ヘッダーを表示' : 'ヘッダーを隠す'}
+        title={isHeaderCollapsed ? 'ヘッダーを表示' : 'ヘッダーを隠す'}
+        onClick={() => void toggleHeader()}
+      >{isHeaderCollapsed ? '▼ ヘッダーを表示' : '▲ ヘッダーを隠す'}</button>
       <div className="workspace-row">
         <div className="brand"><span className="brand-mark">M</span><h1>Multi-AI</h1></div>
         <nav className="view-tabs" aria-label="画面選択">
@@ -555,9 +571,9 @@ export const App = () => {
           <button aria-label="画面を追加" title="新しいタブ" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 32} onClick={() => void openLauncher()}>＋</button>
         </div>
         <div className="zoom-actions" role="group" aria-label="全画面の表示倍率">
-          <button aria-label="全画面を縮小" title="Zoom Out" disabled={zoomPercent <= 50} onClick={() => void changeZoom('out')}>−</button>
-          <button className="zoom-reset" aria-label="全画面を100%に戻す" title="Reset" disabled={zoomPercent === 100} onClick={() => void changeZoom('reset')}>{zoomPercent}%</button>
-          <button aria-label="全画面を拡大" title="Zoom In" disabled={zoomPercent >= 200} onClick={() => void changeZoom('in')}>＋</button>
+          <button aria-label="全画面を縮小" title={ja.zoom.out} disabled={zoomPercent <= 50} onClick={() => void changeZoom('out')}>−</button>
+          <button className="zoom-reset" aria-label="全画面を100%に戻す" title={ja.zoom.reset} disabled={zoomPercent === 100} onClick={() => void changeZoom('reset')}>{zoomPercent}%</button>
+          <button aria-label="全画面を拡大" title={ja.zoom.in} disabled={zoomPercent >= 200} onClick={() => void changeZoom('in')}>＋</button>
           {zoomError ? <span className="zoom-error" role="alert">{zoomError}</span> : null}
         </div>
         {isFocusMode ? <span className="focus-status" role="status">集中表示中</span> : null}

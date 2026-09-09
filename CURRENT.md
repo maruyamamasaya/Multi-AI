@@ -17,6 +17,7 @@
 - IPC状態を確認できる最小画面
 - `WebContentsView`による `example.com` と `example.org` の左右分割表示
 - ウィンドウリサイズへの追従、新規ウィンドウとWeb権限要求の拒否
+- 管理対象Web画面からの安全なクリップボード書き込み（コピー）のみ許可し、読み取りを含む他のWeb権限は拒否
 - 各ビューのURL入力、戻る、進む、再読み込み
 - URL・履歴・読み込み状態のmainからrendererへの同期
 - `http` / `https` 限定のURL正規化とIPC共有型
