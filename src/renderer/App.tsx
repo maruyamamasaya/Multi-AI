@@ -10,12 +10,13 @@ import type { Bookmark } from '../shared/bookmarks';
 import type { NamedWorkspaceSummary } from '../shared/named-workspaces';
 import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
+import type { ZoomAction } from '../shared/zoom';
 
 const initialStates: NavigationState[] = [
   { viewId: 1, serviceId: null, url: 'https://example.com/', title: '', canGoBack: false, canGoForward: false, isLoading: true },
 ];
 
-const NavigationBar = ({ state }: { state: NavigationState }) => {
+const NavigationBar = ({ disabled = false, state }: { disabled?: boolean; state: NavigationState }) => {
   const [url, setUrl] = useState(state.url);
   const [error, setError] = useState('');
   useEffect(() => setUrl(state.url), [state.url]);
@@ -41,15 +42,15 @@ const NavigationBar = ({ state }: { state: NavigationState }) => {
 
   return (
     <form className="navigation-bar" onSubmit={navigate} aria-label="選択中ビューのナビゲーション">
-      <button type="button" aria-label="戻る" disabled={!state.canGoBack} onClick={() => void run(window.multiAI.back)}>←</button>
-      <button type="button" aria-label="進む" disabled={!state.canGoForward} onClick={() => void run(window.multiAI.forward)}>→</button>
-      <button type="button" aria-label="再読み込み" onClick={() => void run(window.multiAI.reload)}>↻</button>
+      <button type="button" aria-label="戻る" disabled={disabled || !state.canGoBack} onClick={() => void run(window.multiAI.back)}>←</button>
+      <button type="button" aria-label="進む" disabled={disabled || !state.canGoForward} onClick={() => void run(window.multiAI.forward)}>→</button>
+      <button type="button" aria-label="再読み込み" disabled={disabled} onClick={() => void run(window.multiAI.reload)}>↻</button>
       <label className="url-field">
         <span className="sr-only">URL</span>
-        <input aria-label="URL" aria-invalid={Boolean(error)} value={url} onChange={(event) => setUrl(event.target.value)} spellCheck={false} />
+        <input aria-label="URL" aria-invalid={Boolean(error)} value={url} disabled={disabled} onChange={(event) => setUrl(event.target.value)} spellCheck={false} />
         {state.isLoading ? <span className="loading-indicator" aria-label="読み込み中" /> : null}
       </label>
-      <button className="primary-button" type="submit">開く</button>
+      <button className="primary-button" type="submit" disabled={disabled}>開く</button>
       {error ? <span className="url-error">{error}</span> : null}
     </form>
   );
@@ -143,6 +144,13 @@ export const App = () => {
   const [promptResults, setPromptResults] = useState<PromptSendResult[]>([]);
   const [isSendingPrompt, setIsSendingPrompt] = useState(false);
   const [promptError, setPromptError] = useState('');
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [comparisonCandidates, setComparisonCandidates] = useState<PromptSendResult[]>([]);
+  const [comparisonTargets, setComparisonTargets] = useState<Set<ViewId>>(new Set());
+  const [comparisonFocusedViewId, setComparisonFocusedViewId] = useState<ViewId | null>(null);
+  const [comparisonError, setComparisonError] = useState('');
+  const [zoomPercent, setZoomPercent] = useState(100);
+  const [zoomError, setZoomError] = useState('');
   const promptEligibility = useRef(new Map<ViewId, boolean>());
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
   const selectedBookmarkService = getAiServiceByUrl(selectedState?.url ?? '');
@@ -155,8 +163,10 @@ export const App = () => {
     void Promise.all([
       window.multiAI.getNavigationStates(),
       window.multiAI.getSelectedViewId(),
+      window.multiAI.getZoomPercent(),
     ])
-      .then(([next, restoredViewId]) => {
+      .then(([next, restoredViewId, currentZoomPercent]) => {
+        setZoomPercent(currentZoomPercent);
         if (next.length) {
           setStates(next);
           const restoredExists = next.some(({ viewId }) => viewId === restoredViewId);
@@ -363,6 +373,72 @@ export const App = () => {
     }
   };
 
+  const startComparison = async () => {
+    const candidates = promptResults.filter((result) => states.some(({ viewId }) => viewId === result.viewId));
+    if (candidates.length < 2) return;
+    const targetIds = candidates.map(({ viewId }) => viewId);
+    setComparisonError('');
+    try {
+      await window.multiAI.setComparisonLayout({ activeViewIds: targetIds, focusedViewId: null });
+      setComparisonCandidates(candidates);
+      setComparisonTargets(new Set(targetIds));
+      setComparisonFocusedViewId(null);
+      setIsComparisonMode(true);
+    } catch (reason) {
+      setPromptError(reason instanceof Error ? reason.message : '比較モードを開始できませんでした。');
+    }
+  };
+
+  const updateComparison = async (nextTargets: Set<ViewId>, focusedViewId: ViewId | null) => {
+    setComparisonError('');
+    try {
+      await window.multiAI.setComparisonLayout({ activeViewIds: [...nextTargets], focusedViewId });
+      setComparisonTargets(nextTargets);
+      setComparisonFocusedViewId(focusedViewId);
+    } catch (reason) {
+      setComparisonError(reason instanceof Error ? reason.message : '比較表示を変更できませんでした。');
+    }
+  };
+
+  const toggleComparisonTarget = (viewId: ViewId) => {
+    const next = new Set(comparisonTargets);
+    if (next.has(viewId)) {
+      if (next.size === 1) return;
+      next.delete(viewId);
+    } else {
+      next.add(viewId);
+    }
+    void updateComparison(next, comparisonFocusedViewId === viewId ? null : comparisonFocusedViewId);
+  };
+
+  const focusComparisonView = (viewId: ViewId) => {
+    void updateComparison(new Set(comparisonTargets), viewId);
+  };
+
+  const returnToComparison = () => {
+    void updateComparison(new Set(comparisonTargets), null);
+  };
+
+  const exitComparison = async () => {
+    setComparisonError('');
+    try {
+      await window.multiAI.exitComparison();
+      setIsComparisonMode(false);
+      setComparisonFocusedViewId(null);
+    } catch (reason) {
+      setComparisonError(reason instanceof Error ? reason.message : '比較モードを終了できませんでした。');
+    }
+  };
+
+  const changeZoom = async (action: ZoomAction) => {
+    setZoomError('');
+    try {
+      setZoomPercent(await window.multiAI.changeZoom(action));
+    } catch (reason) {
+      setZoomError(reason instanceof Error ? reason.message : '表示倍率を変更できませんでした。');
+    }
+  };
+
   if (!selectedState) return null;
   const selectedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
 
@@ -377,7 +453,7 @@ export const App = () => {
             return (
               <button
                 key={state.viewId}
-                disabled={!isWorkspaceReady || isFocusMode}
+                disabled={!isWorkspaceReady || isFocusMode || isComparisonMode}
                 className={isSelected ? 'active' : ''}
                 aria-current={isSelected ? 'page' : undefined}
                 aria-label={`画面 ${index + 1}: ${service.name}`}
@@ -391,51 +467,84 @@ export const App = () => {
           })}
         </nav>
         <div className="workspace-actions">
-          <button aria-label="画面を減らす" disabled={!isWorkspaceReady || isFocusMode || states.length === 1} onClick={() => void removeView()}>−</button>
+          <button aria-label="画面を減らす" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView()}>−</button>
           <div className="reorder-actions" role="group" aria-label="画面の並び順">
-            <button title="左へ移動" aria-label="選択中画面を左へ移動" disabled={!isWorkspaceReady || isFocusMode || selectedIndex <= 0} onClick={() => void moveView('left')}>‹</button>
-            <button title="右へ移動" aria-label="選択中画面を右へ移動" disabled={!isWorkspaceReady || isFocusMode || selectedIndex >= states.length - 1} onClick={() => void moveView('right')}>›</button>
+            <button title="左へ移動" aria-label="選択中画面を左へ移動" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || selectedIndex <= 0} onClick={() => void moveView('left')}>‹</button>
+            <button title="右へ移動" aria-label="選択中画面を右へ移動" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || selectedIndex >= states.length - 1} onClick={() => void moveView('right')}>›</button>
           </div>
           <button
             className="focus-button"
             title={isFocusMode ? '分割表示に戻す' : '選択中画面を集中表示'}
             aria-label={isFocusMode ? '分割表示に戻す' : '選択中画面を集中表示'}
             aria-pressed={isFocusMode}
-            disabled={!isWorkspaceReady || states.length === 1}
+            disabled={!isWorkspaceReady || isComparisonMode || states.length === 1}
             onClick={() => void toggleFocusMode()}
           >{isFocusMode ? '⊞' : '⛶'}</button>
-          <button aria-label="画面を追加" disabled={!isWorkspaceReady || isFocusMode || states.length === 4} onClick={() => void openLauncher()}>＋</button>
+          <button aria-label="画面を追加" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 4} onClick={() => void openLauncher()}>＋</button>
+        </div>
+        <div className="zoom-actions" role="group" aria-label="全画面の表示倍率">
+          <button aria-label="全画面を縮小" title="Zoom Out" disabled={zoomPercent <= 50} onClick={() => void changeZoom('out')}>−</button>
+          <button className="zoom-reset" aria-label="全画面を100%に戻す" title="Reset" disabled={zoomPercent === 100} onClick={() => void changeZoom('reset')}>{zoomPercent}%</button>
+          <button aria-label="全画面を拡大" title="Zoom In" disabled={zoomPercent >= 200} onClick={() => void changeZoom('in')}>＋</button>
+          {zoomError ? <span className="zoom-error" role="alert">{zoomError}</span> : null}
         </div>
         {isFocusMode ? <span className="focus-status" role="status">集中表示中</span> : null}
         <div className="bookmark-actions">
-          <button aria-label="現在のAI会話を保存" title={selectedBookmarkService ? '現在のAI会話を保存' : '対応AIサービスのページだけ保存できます'} disabled={!selectedBookmarkService} onClick={() => void addBookmark()}>☆</button>
-          <select aria-label="AI会話ブックマーク" value={selectedBookmarkId} onChange={(event) => setSelectedBookmarkId(event.target.value)}>
+          <button aria-label="現在のAI会話を保存" title={selectedBookmarkService ? '現在のAI会話を保存' : '対応AIサービスのページだけ保存できます'} disabled={!selectedBookmarkService || isComparisonMode} onClick={() => void addBookmark()}>☆</button>
+          <select aria-label="AI会話ブックマーク" value={selectedBookmarkId} disabled={isComparisonMode} onChange={(event) => setSelectedBookmarkId(event.target.value)}>
             <option value="">AI会話一覧</option>
             {bookmarks.map((bookmark) => {
               const service = getAiService(bookmark.serviceId) ?? UNKNOWN_AI_SERVICE;
               return <option key={bookmark.id} value={bookmark.id}>{service.icon} {service.name} · {bookmark.title}</option>;
             })}
           </select>
-          <button aria-label="選択中画面でAI会話を開く" disabled={!selectedBookmarkId} onClick={() => void openBookmark()}>開く</button>
-          <button aria-label="AI会話ブックマークを削除" disabled={!selectedBookmarkId} onClick={() => void removeBookmark()}>×</button>
+          <button aria-label="選択中画面でAI会話を開く" disabled={!selectedBookmarkId || isComparisonMode} onClick={() => void openBookmark()}>開く</button>
+          <button aria-label="AI会話ブックマークを削除" disabled={!selectedBookmarkId || isComparisonMode} onClick={() => void removeBookmark()}>×</button>
         </div>
       </div>
       <div className="saved-workspace-row">
         <form className="workspace-save-form" aria-label="名前付きワークスペース保存" onSubmit={(event) => void saveNamedWorkspace(event)}>
-          <input aria-label="ワークスペース名" value={workspaceName} maxLength={60} placeholder="ワークスペース名" disabled={!isWorkspaceReady || isFocusMode} onChange={(event) => setWorkspaceName(event.target.value)} />
-          <button type="submit" disabled={!isWorkspaceReady || isFocusMode || !workspaceName.trim()}>ワークスペース保存</button>
+          <input aria-label="ワークスペース名" value={workspaceName} maxLength={60} placeholder="ワークスペース名" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode} onChange={(event) => setWorkspaceName(event.target.value)} />
+          <button type="submit" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || !workspaceName.trim()}>ワークスペース保存</button>
         </form>
         <div className="workspace-library-actions">
-          <select aria-label="ワークスペース一覧" value={savedWorkspaceId} disabled={!isWorkspaceReady || isFocusMode} onChange={(event) => setSavedWorkspaceId(event.target.value)}>
+          <select aria-label="ワークスペース一覧" value={savedWorkspaceId} disabled={!isWorkspaceReady || isFocusMode || isComparisonMode} onChange={(event) => setSavedWorkspaceId(event.target.value)}>
             <option value="">ワークスペース一覧</option>
             {namedWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}（{workspace.viewCount}画面）</option>)}
           </select>
-          <button disabled={!savedWorkspaceId || isFocusMode} onClick={() => void loadNamedWorkspace()}>切り替え</button>
-          <button aria-label="保存済みワークスペースを削除" disabled={!savedWorkspaceId || isFocusMode} onClick={() => void removeNamedWorkspace()}>削除</button>
+          <button disabled={!savedWorkspaceId || isFocusMode || isComparisonMode} onClick={() => void loadNamedWorkspace()}>切り替え</button>
+          <button aria-label="保存済みワークスペースを削除" disabled={!savedWorkspaceId || isFocusMode || isComparisonMode} onClick={() => void removeNamedWorkspace()}>削除</button>
         </div>
         {workspaceError ? <span className="workspace-error" role="alert">{workspaceError}</span> : null}
       </div>
-      <form className="common-prompt-row" aria-label="共通プロンプト送信" onSubmit={(event) => void sendCommonPrompt(event)}>
+      {isComparisonMode ? (
+        <section className="comparison-row" aria-label="回答比較モード">
+          <div className="comparison-heading"><strong>比較モード</strong><span>{comparisonTargets.size}画面を比較中</span></div>
+          <div className="comparison-targets">
+            {comparisonCandidates.map((result) => {
+              const state = states.find(({ viewId }) => viewId === result.viewId);
+              const index = states.findIndex(({ viewId }) => viewId === result.viewId);
+              const service = getAiService(result.serviceId) ?? (state ? getAiServiceByUrl(state.url) : undefined) ?? UNKNOWN_AI_SERVICE;
+              const isActive = comparisonTargets.has(result.viewId);
+              return (
+                <div className={`comparison-target ${isActive ? 'active' : 'excluded'}`} key={result.viewId}>
+                  <label>
+                    <input type="checkbox" checked={isActive} disabled={isActive && comparisonTargets.size === 1} onChange={() => toggleComparisonTarget(result.viewId)} />
+                    <span>画面 {index + 1}</span><span className={`prompt-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span><strong>{service.name}</strong>
+                  </label>
+                  <span className={`comparison-send-status ${result.status}`}>{result.status === 'success' ? '送信成功' : '送信失敗'}</span>
+                  <button aria-label={`画面 ${index + 1}を比較内で集中表示`} disabled={!isActive || comparisonFocusedViewId === result.viewId} onClick={() => focusComparisonView(result.viewId)}>集中</button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="comparison-actions">
+            {comparisonFocusedViewId !== null ? <button className="primary-button" onClick={returnToComparison}>比較表示へ戻る</button> : null}
+            <button onClick={() => void exitComparison()}>比較モードを終了</button>
+          </div>
+          {comparisonError ? <span className="comparison-error" role="alert">{comparisonError}</span> : null}
+        </section>
+      ) : <form className="common-prompt-row" aria-label="共通プロンプト送信" onSubmit={(event) => void sendCommonPrompt(event)}>
         <textarea aria-label="共通プロンプト" value={commonPrompt} maxLength={20000} placeholder="複数AIへ送るプロンプト" onChange={(event) => setCommonPrompt(event.target.value)} />
         <fieldset className="prompt-targets">
           <legend>送信先</legend>
@@ -460,10 +569,11 @@ export const App = () => {
             const service = getAiService(result.serviceId) ?? UNKNOWN_AI_SERVICE;
             return <span key={result.viewId} className={result.status} title={result.message}>画面 {index + 1} {service.name}: {result.status === 'success' ? '成功' : '失敗'}</span>;
           })}
+          {promptResults.filter((result) => states.some(({ viewId }) => viewId === result.viewId)).length >= 2 ? <button type="button" className="compare-button" onClick={() => void startComparison()}>回答を比較</button> : null}
           {promptError ? <span className="failure" role="alert">{promptError}</span> : null}
         </div>
-      </form>
-      <NavigationBar state={selectedState} />
+      </form>}
+      <NavigationBar state={selectedState} disabled={isComparisonMode} />
       {isLauncherOpen ? <ServiceLauncher onCancel={closeLauncher} onSelect={addView} /> : null}
       {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}
       {bookmarkError ? <p className="bookmark-error" role="alert">{bookmarkError}</p> : null}

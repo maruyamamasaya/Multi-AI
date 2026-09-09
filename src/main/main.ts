@@ -9,6 +9,7 @@ import {
   type AiServiceId,
 } from '../shared/ai-services';
 import { bookmarkChannels, parseBookmarks, type Bookmark } from '../shared/bookmarks';
+import { comparisonChannels, parseComparisonLayout, type ComparisonLayoutState } from '../shared/comparison';
 import {
   namedWorkspaceChannels,
   normalizeWorkspaceName,
@@ -26,6 +27,8 @@ import {
   type ViewId,
 } from '../shared/navigation';
 import { normalizePrompt, parsePromptTargets, promptChannels, type PromptSendResult } from '../shared/prompt';
+import { nextZoomPercent, parseZoomAction, zoomChannels } from '../shared/zoom';
+import { tabVisibilityChannels, type TabVisibilityResult } from '../shared/tab-visibility';
 import {
   workspaceChannels,
   workspaceLayoutForViewCount,
@@ -37,14 +40,15 @@ import { promptAdapters } from './prompt-adapters';
 import type { AdapterExecutionResult } from './prompt-adapters/types';
 import { readWorkspaceSnapshot, writeWorkspaceSnapshot } from './workspace-store';
 
-const TOOLBAR_HEIGHT = 250;
+const TOOLBAR_HEIGHT = 278;
 const DEFAULT_URLS = ['https://example.com/'] as const;
-const MAX_VIEWS = 4;
+const MAX_TABS = 32;
 
 interface PageView {
   id: ViewId;
   lastUrl: string;
   serviceId: AiServiceId | null;
+  isVisible: boolean;
   view: WebContentsView;
 }
 
@@ -58,6 +62,16 @@ let isRestoringWorkspace = false;
 let isLauncherOpen = false;
 let focusedViewId: ViewId | null = null;
 let isStartupSelectionOpen = false;
+let comparisonLayout: (ComparisonLayoutState & { candidateViewIds: ViewId[] }) | null = null;
+let zoomPercent = 100;
+let zoomWriteQueue = Promise.resolve();
+
+const applyZoomToAllViews = async (): Promise<void> => {
+  for (const { view } of pageViews) {
+    view.webContents.setZoomFactor(zoomPercent / 100);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+};
 
 const getPageView = (viewId: unknown): PageView => {
   if (!Number.isInteger(viewId)) throw new Error('対象のビューが見つかりません。');
@@ -66,7 +80,7 @@ const getPageView = (viewId: unknown): PageView => {
   return pageView;
 };
 
-const getNavigationState = ({ id, lastUrl, serviceId, view }: PageView): NavigationState => ({
+const getNavigationState = ({ id, lastUrl, serviceId, isVisible, view }: PageView): NavigationState => ({
   viewId: id,
   serviceId,
   url: view.webContents.getURL() || lastUrl,
@@ -74,9 +88,11 @@ const getNavigationState = ({ id, lastUrl, serviceId, view }: PageView): Navigat
   canGoBack: view.webContents.navigationHistory.canGoBack(),
   canGoForward: view.webContents.navigationHistory.canGoForward(),
   isLoading: view.webContents.isLoading(),
+  isVisible,
 });
 
 const getNavigationStates = (): NavigationState[] => pageViews.map(getNavigationState);
+const getVisiblePageViews = (): PageView[] => pageViews.filter(({ isVisible }) => isVisible);
 
 const workspaceFile = (): string => path.join(app.getPath('userData'), 'workspace.json');
 const namedWorkspacesFile = (): string => path.join(app.getPath('userData'), 'named-workspaces.json');
@@ -85,6 +101,7 @@ const captureWorkspace = (): WorkspaceSnapshot => ({
     viewCount: pageViews.length,
     urls: pageViews.map(({ lastUrl, view }) => view.webContents.getURL() || lastUrl),
     serviceIds: pageViews.map(({ serviceId }) => serviceId),
+    visibleIndices: pageViews.flatMap(({ isVisible }, index) => isVisible ? [index] : []),
     selectedIndex: Math.max(0, pageViews.findIndex(({ id }) => id === selectedViewId)),
     layout: workspaceLayoutForViewCount(pageViews.length),
 });
@@ -104,6 +121,18 @@ const updateViewBounds = (): void => {
     pageViews.forEach(({ view }) => view.setVisible(false));
     return;
   }
+  if (comparisonLayout) {
+    const visibleIds = comparisonLayout.focusedViewId === null
+      ? comparisonLayout.activeViewIds
+      : [comparisonLayout.focusedViewId];
+    const bounds = calculateViewBounds(visibleIds.length, width, height, TOOLBAR_HEIGHT);
+    pageViews.forEach(({ id, view }) => {
+      const visibleIndex = visibleIds.indexOf(id);
+      view.setVisible(visibleIndex >= 0);
+      if (visibleIndex >= 0) view.setBounds(bounds[visibleIndex]);
+    });
+    return;
+  }
   if (focusedViewId !== null) {
     pageViews.forEach(({ id, view }) => {
       const isFocused = id === focusedViewId;
@@ -114,15 +143,17 @@ const updateViewBounds = (): void => {
     });
     return;
   }
-  const bounds = calculateViewBounds(pageViews.length, width, height, TOOLBAR_HEIGHT);
-  pageViews.forEach(({ view }, index) => {
-    view.setVisible(true);
+  const visiblePageViews = getVisiblePageViews();
+  const bounds = calculateViewBounds(visiblePageViews.length, width, height, TOOLBAR_HEIGHT);
+  pageViews.forEach(({ view, isVisible }) => view.setVisible(isVisible));
+  visiblePageViews.forEach(({ view }, index) => {
     view.setBounds(bounds[index]);
   });
 };
 
 const ensureSplitMode = (): void => {
   if (focusedViewId !== null) throw new Error('集中表示を解除してから画面を変更してください。');
+  if (comparisonLayout !== null) throw new Error('比較モードを終了してから画面を変更してください。');
 };
 
 const replaceWorkspace = async (snapshot: WorkspaceSnapshot): Promise<NamedWorkspaceLoadResult> => {
@@ -135,9 +166,11 @@ const replaceWorkspace = async (snapshot: WorkspaceSnapshot): Promise<NamedWorks
       view.webContents.close();
     });
     pageViews = snapshot.urls.map((url, index) =>
-      createPageView(url, snapshot.serviceIds[index] ?? null, false),
+      createPageView(url, snapshot.serviceIds[index] ?? null, false, snapshot.visibleIndices.includes(index)),
     );
-    selectedViewId = pageViews[snapshot.selectedIndex]?.id ?? pageViews[0].id;
+    selectedViewId = pageViews[snapshot.selectedIndex]?.isVisible
+      ? pageViews[snapshot.selectedIndex].id
+      : getVisiblePageViews()[0].id;
     updateViewBounds();
     pageViews.forEach(({ lastUrl, view }) => {
       void view.webContents.loadURL(lastUrl).catch(() => undefined);
@@ -153,16 +186,21 @@ const createPageView = (
   url: string,
   serviceId: AiServiceId | null = getAiServiceByUrl(url)?.id ?? null,
   loadImmediately = true,
+  isVisible = true,
 ): PageView => {
   if (!mainWindow) throw new Error('アプリウィンドウがありません。');
   const pageView: PageView = {
     id: nextViewId++,
     lastUrl: url,
     serviceId,
+    isVisible,
     view: new WebContentsView({
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
     }),
   };
+  pageView.view.webContents.setZoomMode('isolated');
+  const applyCurrentZoom = () => pageView.view.webContents.setZoomFactor(zoomPercent / 100);
+  applyCurrentZoom();
   const publishState = () => {
     if (mainWindow && !pageView.view.webContents.isDestroyed()) {
       pageView.lastUrl = pageView.view.webContents.getURL() || pageView.lastUrl;
@@ -181,6 +219,7 @@ const createPageView = (
   });
   pageView.view.webContents.on('did-start-loading', publishState);
   pageView.view.webContents.on('did-stop-loading', publishState);
+  pageView.view.webContents.on('did-finish-load', applyCurrentZoom);
   pageView.view.webContents.on('page-title-updated', publishState);
   mainWindow.contentView.addChildView(pageView.view);
   pageView.view.setVisible(!isLauncherOpen && !isStartupSelectionOpen);
@@ -190,13 +229,13 @@ const createPageView = (
 
 const addView = async (serviceId: unknown): Promise<NavigationState[]> => {
   ensureSplitMode();
-  if (pageViews.length >= MAX_VIEWS) throw new Error('画面は4つまで追加できます。');
+  if (pageViews.length >= MAX_TABS) throw new Error('タブは32個まで追加できます。');
   const service = getAiService(serviceId);
   if (!service) throw new Error('AIサービスを選択してください。');
   const url = service.url;
-  const pageView = createPageView(url, service.id, false);
+  const pageView = createPageView(url, service.id, false, getVisiblePageViews().length < 4);
   pageViews.push(pageView);
-  selectedViewId = pageView.id;
+  if (pageView.isVisible) selectedViewId = pageView.id;
   updateViewBounds();
   void pageView.view.webContents.loadURL(url).catch(() => undefined);
   await persistWorkspace();
@@ -211,8 +250,11 @@ const removeView = async (viewId: unknown): Promise<NavigationState[]> => {
   mainWindow?.contentView.removeChildView(pageView.view);
   pageView.view.webContents.close();
   pageViews = pageViews.filter(({ id }) => id !== pageView.id);
+  if (!getVisiblePageViews().length) {
+    pageViews[Math.min(removedIndex, pageViews.length - 1)].isVisible = true;
+  }
   if (selectedViewId === pageView.id) {
-    selectedViewId = pageViews[Math.min(removedIndex, pageViews.length - 1)].id;
+    selectedViewId = getVisiblePageViews()[0].id;
   }
   updateViewBounds();
   await persistWorkspace();
@@ -297,9 +339,43 @@ const sendCommonPrompt = async (input: unknown, targetInput: unknown): Promise<P
 
 const registerIpcHandlers = (): void => {
   ipcMain.handle('app:ping', () => 'pong');
+  ipcMain.handle(zoomChannels.get, () => zoomPercent);
+  ipcMain.handle(zoomChannels.change, async (_event, input: unknown) => {
+    const action = parseZoomAction(input);
+    let appliedZoom = zoomPercent;
+    zoomWriteQueue = zoomWriteQueue.then(async () => {
+      zoomPercent = nextZoomPercent(zoomPercent, action);
+      appliedZoom = zoomPercent;
+      await applyZoomToAllViews();
+    });
+    await zoomWriteQueue;
+    return appliedZoom;
+  });
   ipcMain.handle(promptChannels.send, (_event, prompt: unknown, viewIds: unknown) =>
     sendCommonPrompt(prompt, viewIds),
   );
+  ipcMain.handle(comparisonChannels.set, (_event, input: unknown) => {
+    if (focusedViewId !== null || isLauncherOpen || isStartupSelectionOpen) {
+      throw new Error('現在の表示モードでは比較を開始できません。');
+    }
+    const layout = parseComparisonLayout(input);
+    layout.activeViewIds.forEach((viewId) => {
+      getPageView(viewId);
+    });
+    const existingCandidates = comparisonLayout?.candidateViewIds;
+    if (existingCandidates && layout.activeViewIds.some((viewId) => !existingCandidates.includes(viewId))) {
+      throw new Error('共通プロンプトを送信した画面だけ比較できます。');
+    }
+    comparisonLayout = {
+      ...layout,
+      candidateViewIds: comparisonLayout?.candidateViewIds ?? [...layout.activeViewIds],
+    };
+    updateViewBounds();
+  });
+  ipcMain.handle(comparisonChannels.exit, () => {
+    comparisonLayout = null;
+    updateViewBounds();
+  });
   ipcMain.handle(navigationChannels.getStates, getNavigationStates);
   ipcMain.handle(navigationChannels.add, (_event, serviceId: unknown) => addView(serviceId));
   ipcMain.handle(navigationChannels.move, (_event, viewId: unknown, direction: unknown) =>
@@ -326,6 +402,7 @@ const registerIpcHandlers = (): void => {
     getPageView(viewId).view.webContents.reload();
   });
   ipcMain.handle(navigationChannels.focus, (_event, viewId: unknown, focused: unknown) => {
+    if (comparisonLayout !== null) throw new Error('比較モード中は比較画面の集中表示を使ってください。');
     if (typeof focused !== 'boolean') throw new Error('集中表示の状態が不正です。');
     const pageView = getPageView(viewId);
     if (focused) {
@@ -341,11 +418,29 @@ const registerIpcHandlers = (): void => {
   ipcMain.handle(workspaceChannels.getSelectedViewId, () => selectedViewId);
   ipcMain.handle(workspaceChannels.selectView, async (_event, viewId: unknown) => {
     const pageView = getPageView(viewId);
+    if (!pageView.isVisible) throw new Error('非表示のタブは先に表示してください。');
     if (focusedViewId !== null && focusedViewId !== pageView.id) {
       throw new Error('集中表示を解除してから別の画面を選択してください。');
     }
     selectedViewId = pageView.id;
     await persistWorkspace();
+  });
+  ipcMain.handle(tabVisibilityChannels.set, async (_event, viewId: unknown, visible: unknown): Promise<TabVisibilityResult> => {
+    ensureSplitMode();
+    if (typeof visible !== 'boolean') throw new Error('タブの表示状態が不正です。');
+    const pageView = getPageView(viewId);
+    if (visible && !pageView.isVisible && getVisiblePageViews().length >= 4) {
+      throw new Error('同時に表示できるタブは4つまでです。');
+    }
+    if (!visible && pageView.isVisible && getVisiblePageViews().length === 1) {
+      throw new Error('少なくとも1つのタブを表示してください。');
+    }
+    pageView.isVisible = visible;
+    if (!visible && selectedViewId === pageView.id) selectedViewId = getVisiblePageViews()[0].id;
+    if (visible) selectedViewId = pageView.id;
+    updateViewBounds();
+    await persistWorkspace();
+    return { visibleViewIds: getVisiblePageViews().map(({ id }) => id), selectedViewId: selectedViewId! };
   });
   ipcMain.handle(launcherChannels.setOpen, (_event, open: unknown) => {
     if (typeof open !== 'boolean') throw new Error('ランチャーの状態が不正です。');
@@ -472,15 +567,19 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
     },
   });
   mainWindow = window;
+  zoomPercent = 100;
   isLauncherOpen = false;
   focusedViewId = null;
+  comparisonLayout = null;
   isStartupSelectionOpen = showStartupSelection;
   void window.loadFile(path.join(__dirname, '../../dist-renderer/index.html'));
   isRestoringWorkspace = true;
   pageViews = workspace.urls.map((url, index) =>
-    createPageView(url, workspace.serviceIds[index] ?? null, false),
+    createPageView(url, workspace.serviceIds[index] ?? null, false, workspace.visibleIndices.includes(index)),
   );
-  selectedViewId = pageViews[workspace.selectedIndex]?.id ?? pageViews[0].id;
+  selectedViewId = pageViews[workspace.selectedIndex]?.isVisible
+    ? pageViews[workspace.selectedIndex].id
+    : getVisiblePageViews()[0].id;
   updateViewBounds();
   pageViews.forEach(({ lastUrl, view }) => {
     void view.webContents.loadURL(lastUrl).catch(() => undefined);

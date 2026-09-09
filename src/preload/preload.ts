@@ -16,6 +16,9 @@ import {
 } from '../shared/navigation';
 import { workspaceChannels } from '../shared/workspace';
 import { promptChannels, type PromptSendResult } from '../shared/prompt';
+import { comparisonChannels, type ComparisonLayoutState } from '../shared/comparison';
+import { zoomChannels, type ZoomAction } from '../shared/zoom';
+import { tabVisibilityChannels, type TabVisibilityResult } from '../shared/tab-visibility';
 
 contextBridge.exposeInMainWorld('multiAI', {
   addBookmark: (viewId: ViewId): Promise<Bookmark[]> =>
@@ -23,8 +26,10 @@ contextBridge.exposeInMainWorld('multiAI', {
   addView: (serviceId: AiServiceId): Promise<NavigationState[]> =>
     ipcRenderer.invoke(navigationChannels.add, serviceId),
   back: (viewId: ViewId): Promise<void> => ipcRenderer.invoke(navigationChannels.back, viewId),
+  exitComparison: (): Promise<void> => ipcRenderer.invoke(comparisonChannels.exit),
   forward: (viewId: ViewId): Promise<void> =>
     ipcRenderer.invoke(navigationChannels.forward, viewId),
+  getZoomPercent: (): Promise<number> => ipcRenderer.invoke(zoomChannels.get),
   getNavigationStates: (): Promise<NavigationState[]> =>
     ipcRenderer.invoke(navigationChannels.getStates),
   getNamedWorkspaces: (): Promise<NamedWorkspaceSummary[]> =>
@@ -65,5 +70,10 @@ contextBridge.exposeInMainWorld('multiAI', {
     ipcRenderer.invoke(namedWorkspaceChannels.start, selection),
   setFocusMode: (viewId: ViewId, focused: boolean): Promise<void> =>
     ipcRenderer.invoke(navigationChannels.focus, viewId, focused),
+  setComparisonLayout: (layout: ComparisonLayoutState): Promise<void> =>
+    ipcRenderer.invoke(comparisonChannels.set, layout),
   setLauncherOpen: (open: boolean): Promise<void> => ipcRenderer.invoke(launcherChannels.setOpen, open),
+  setTabVisibility: (viewId: ViewId, visible: boolean): Promise<TabVisibilityResult> =>
+    ipcRenderer.invoke(tabVisibilityChannels.set, viewId, visible),
+  changeZoom: (action: ZoomAction): Promise<number> => ipcRenderer.invoke(zoomChannels.change, action),
 });

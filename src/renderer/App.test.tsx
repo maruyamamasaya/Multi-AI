@@ -15,7 +15,9 @@ describe('App', () => {
       addBookmark: vi.fn().mockResolvedValue([]),
       addView: vi.fn().mockResolvedValue([...states, { ...states[0], viewId: 3 }]),
       back: vi.fn().mockResolvedValue(undefined),
+      exitComparison: vi.fn().mockResolvedValue(undefined),
       forward: vi.fn().mockResolvedValue(undefined),
+      getZoomPercent: vi.fn().mockResolvedValue(100),
       getBookmarks: vi.fn().mockResolvedValue([]),
       getNamedWorkspaces: vi.fn().mockResolvedValue([]),
       getStartupWorkspaceState: vi.fn().mockResolvedValue({ required: false, workspaces: [] }),
@@ -35,7 +37,9 @@ describe('App', () => {
       saveNamedWorkspace: vi.fn().mockResolvedValue([{ id: 'saved-1', name: '調査用', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' }]),
       sendPrompt: vi.fn().mockResolvedValue([]),
       setFocusMode: vi.fn().mockResolvedValue(undefined),
+      setComparisonLayout: vi.fn().mockResolvedValue(undefined),
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
+      changeZoom: vi.fn().mockImplementation(async (action) => action === 'in' ? 110 : action === 'out' ? 90 : 100),
       startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
     };
   });
@@ -86,6 +90,25 @@ describe('App', () => {
     await waitFor(() => expect(addButton).toBeDisabled());
     fireEvent.click(addButton);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('changes and resets the shared zoom from the toolbar', async () => {
+    window.multiAI.changeZoom = vi.fn()
+      .mockResolvedValueOnce(110)
+      .mockResolvedValueOnce(90)
+      .mockResolvedValueOnce(100);
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: '全画面を100%に戻す' })).toHaveTextContent('100%');
+    fireEvent.click(screen.getByRole('button', { name: '全画面を拡大' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '全画面を100%に戻す' })).toHaveTextContent('110%'));
+    fireEvent.click(screen.getByRole('button', { name: '全画面を縮小' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '全画面を100%に戻す' })).toHaveTextContent('90%'));
+    fireEvent.click(screen.getByRole('button', { name: '全画面を100%に戻す' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '全画面を100%に戻す' })).toHaveTextContent('100%'));
+    expect(window.multiAI.changeZoom).toHaveBeenNthCalledWith(1, 'in');
+    expect(window.multiAI.changeZoom).toHaveBeenNthCalledWith(2, 'out');
+    expect(window.multiAI.changeZoom).toHaveBeenNthCalledWith(3, 'reset');
   });
 
   it('restores the selected view', async () => {
@@ -340,6 +363,40 @@ describe('App', () => {
     expect(screen.getByText('画面 2 Perplexity: 成功')).toBeInTheDocument();
   });
 
+  it('compares sent views, excludes and restores a target, focuses, and exits', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/' },
+      { ...states[1], serviceId: 'perplexity', url: 'https://www.perplexity.ai/' },
+    ]);
+    window.multiAI.sendPrompt = vi.fn().mockResolvedValue([
+      { viewId: 1, serviceId: 'chatgpt', status: 'success', message: '送信操作を完了しました。' },
+      { viewId: 2, serviceId: 'perplexity', status: 'failure', message: '送信ボタンが見つかりません。' },
+    ]);
+    render(<App />);
+    fireEvent.change(await screen.findByRole('textbox', { name: '共通プロンプト' }), { target: { value: '比較用質問' } });
+    fireEvent.click(screen.getByRole('button', { name: '選択したAIへ送信' }));
+    fireEvent.click(await screen.findByRole('button', { name: '回答を比較' }));
+    await waitFor(() => expect(window.multiAI.setComparisonLayout).toHaveBeenCalledWith({ activeViewIds: [1, 2], focusedViewId: null }));
+    expect(screen.getByRole('region', { name: '回答比較モード' })).toHaveTextContent('ChatGPT');
+    expect(screen.getByRole('region', { name: '回答比較モード' })).toHaveTextContent('送信失敗');
+    expect(screen.getByRole('button', { name: '画面を追加' })).toBeDisabled();
+
+    const targets = screen.getAllByRole('checkbox');
+    fireEvent.click(targets[1]);
+    await waitFor(() => expect(window.multiAI.setComparisonLayout).toHaveBeenLastCalledWith({ activeViewIds: [1], focusedViewId: null }));
+    fireEvent.click(targets[1]);
+    await waitFor(() => expect(window.multiAI.setComparisonLayout).toHaveBeenLastCalledWith({ activeViewIds: [1, 2], focusedViewId: null }));
+
+    fireEvent.click(screen.getByRole('button', { name: '画面 1を比較内で集中表示' }));
+    await waitFor(() => expect(window.multiAI.setComparisonLayout).toHaveBeenLastCalledWith({ activeViewIds: [1, 2], focusedViewId: 1 }));
+    fireEvent.click(screen.getByRole('button', { name: '比較表示へ戻る' }));
+    await waitFor(() => expect(window.multiAI.setComparisonLayout).toHaveBeenLastCalledWith({ activeViewIds: [1, 2], focusedViewId: null }));
+    fireEvent.click(screen.getByRole('button', { name: '比較モードを終了' }));
+    await waitFor(() => expect(window.multiAI.exitComparison).toHaveBeenCalled());
+    expect(screen.queryByRole('region', { name: '回答比較モード' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '画面を追加' })).toBeEnabled();
+  });
+
   it('keeps the selected AI identity through an external authentication URL', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       { ...states[0], serviceId: 'notebooklm', url: 'https://accounts.google.com/signin' },
@@ -348,4 +405,5 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByRole('button', { name: '画面 1: NotebookLM' })).toHaveTextContent('NNotebookLM');
   });
+
 });

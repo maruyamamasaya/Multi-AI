@@ -5,9 +5,18 @@ export interface ViewBounds {
   height: number;
 }
 
-const split = (size: number): [number, number] => {
-  const first = Math.floor((size - 1) / 2);
-  return [first, size - 1 - first];
+const splitIntoColumns = (count: number, width: number): ViewBounds[] => {
+  const availableWidth = Math.max(0, width - (count - 1));
+  const baseWidth = Math.floor(availableWidth / count);
+  const remainder = availableWidth % count;
+  let x = 0;
+
+  return Array.from({ length: count }, (_, index) => {
+    const columnWidth = baseWidth + (index >= count - remainder ? 1 : 0);
+    const bounds = { x, y: 0, width: columnWidth, height: 0 };
+    x += columnWidth + 1;
+    return bounds;
+  });
 };
 
 export const calculateViewBounds = (
@@ -25,37 +34,9 @@ export const calculateViewBounds = (
     return [{ x: 0, y: toolbarHeight, width, height: contentHeight }];
   }
 
-  const [leftWidth, rightWidth] = split(width);
-  if (count === 2) {
-    return [
-      { x: 0, y: toolbarHeight, width: leftWidth, height: contentHeight },
-      { x: leftWidth + 1, y: toolbarHeight, width: rightWidth, height: contentHeight },
-    ];
-  }
-
-  const [topHeight, bottomHeight] = split(contentHeight);
-  if (count === 3) {
-    return [
-      { x: 0, y: toolbarHeight, width: leftWidth, height: contentHeight },
-      { x: leftWidth + 1, y: toolbarHeight, width: rightWidth, height: topHeight },
-      {
-        x: leftWidth + 1,
-        y: toolbarHeight + topHeight + 1,
-        width: rightWidth,
-        height: bottomHeight,
-      },
-    ];
-  }
-
-  return [
-    { x: 0, y: toolbarHeight, width: leftWidth, height: topHeight },
-    { x: leftWidth + 1, y: toolbarHeight, width: rightWidth, height: topHeight },
-    { x: 0, y: toolbarHeight + topHeight + 1, width: leftWidth, height: bottomHeight },
-    {
-      x: leftWidth + 1,
-      y: toolbarHeight + topHeight + 1,
-      width: rightWidth,
-      height: bottomHeight,
-    },
-  ];
+  return splitIntoColumns(count, width).map((bounds) => ({
+    ...bounds,
+    y: toolbarHeight,
+    height: contentHeight,
+  }));
 };

@@ -115,6 +115,51 @@ Related tests:
 - `src/main/prompt-adapters/prompt-adapters.test.ts`
 - `src/renderer/App.test.tsx`
 
+## Answer Comparison
+
+Primary paths:
+- `src/shared/comparison.ts`
+- `src/main/main.ts`
+- `src/renderer/App.tsx`
+
+Search keywords:
+- `comparisonChannels`
+- `comparisonLayout`
+- `startComparison`
+- `comparison-row`
+
+Key entry points:
+- comparison IPC handlers in `registerIpcHandlers`
+- comparison branch in `updateViewBounds`
+- comparison mode UI in `App`
+
+Related tests:
+- `src/shared/comparison.test.ts`
+- `src/renderer/App.test.tsx`
+
+## Shared Zoom
+
+Primary paths:
+- `src/shared/zoom.ts`
+- `src/main/main.ts`
+- `src/renderer/App.tsx`
+
+Search keywords:
+- `zoomChannels`
+- `zoomPercent`
+- `setZoomFactor`
+- `changeZoom`
+- `zoom-actions`
+
+Key entry points:
+- zoom IPC handlers in `registerIpcHandlers`
+- Zoom toolbar group in `App`
+- zoom inheritance in `createPageView`
+
+Related tests:
+- `src/shared/zoom.test.ts`
+- `src/renderer/App.test.tsx`
+
 ## Bookmarks
 
 Primary paths:

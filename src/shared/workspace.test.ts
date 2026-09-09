@@ -66,4 +66,5 @@ describe('parseWorkspaceSnapshot', () => {
       ),
     ).toMatchObject({ serviceIds: ['notebooklm'] });
   });
+
 });

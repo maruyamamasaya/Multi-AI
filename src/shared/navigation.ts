@@ -11,6 +11,7 @@ export interface NavigationState {
   canGoBack: boolean;
   canGoForward: boolean;
   isLoading: boolean;
+  isVisible: boolean;
 }
 
 export const navigationChannels = {

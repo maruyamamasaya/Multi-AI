@@ -47,13 +47,14 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 - `addView` / `removeView` / `moveView`: 1～4個の外部ビューを追加し、選択中画面を削除し、ビュー単位で左右へ並び替える。
 - `updateViewBounds`: 通常時の分割配置と集中表示時の単一ビュー配置・可視性を切り替える。
 - `AI_SERVICES` / `ServiceLauncher`: 対応AIの識別子・表示名・アイコン・URL・判定ホストを一元管理し、画面追加前の選択UIを提供する。
-- `calculateViewBounds`: 画面数に応じて全画面、2分割、3分割、2×2を計算する。
+- `calculateViewBounds`: 画面数に応じて全画面、または2～4画面の等幅縦分割（横一列）を計算する。
 - `registerIpcHandlers`: ビューIDを検証し、URL移動と履歴操作を処理する。
 - `parseBookmarks` / `readBookmarks` / `saveBookmarks`: 対応AIの表示名、URL、サービスIDだけをuserData内のJSONへ保存し、旧形式を読み替える。
 - `readWorkspaceSnapshot` / `writeWorkspaceSnapshot`: URL配列と選択位置を保存・復元する。
 - `readNamedWorkspaceFile` / `writeNamedWorkspaceFile`: バージョン付きの名前付きワークスペース一覧を別JSONへ保存する。
 - `StartupWorkspaceSelector`: 名前付き保存がある起動時だけ、前回状態または保存構成を選ぶモーダルを表示する。
 - `promptAdapters`: サービス固有の入力欄・送信ボタンセレクタを個別ファイルに局所化し、共通の安全なDOM入力処理へ渡す。
+- comparison layout state: 共通送信結果のビューだけを対象に、一時的な均等配置・除外・集中表示を管理する。
 - preload: `contextBridge`で型付きの限定ナビゲーションAPIを公開する。
 - `App` / `ViewToolbar`: 各ビューのURL、履歴ボタン、読み込み状態を表示する。
 
@@ -76,6 +77,10 @@ rendererは各ビューに保持したサービスIDを使い、画面タブへ�
 ブックマーク追加時は現在URLのホストを `AI_SERVICES` と照合し、対応AIのページだけを表示名、正規化URL、サービスIDとともに保存します。同じURLは追加しません。旧 `bookmarks.json` のID、title、URLだけの項目はURLからサービスIDを補完し、未対応URL、不正項目、重複URLは安全に一覧から除外します。rendererは同じ中央定義からアイコン、AI名、表示名を一覧へ表示し、選択した会話URLを現在選択中のビューへ開きます。
 
 共通プロンプトはrendererからプロンプト本文と選択したビューIDだけをmainへ渡します。mainは各ビューの現在URLからサービスを再判定し、`src/main/prompt-adapters/` の対応adapterを各WebContents内で独立実行します。共通基盤は可視かつ空の入力欄だけへDOMイベント付きでテキストを設定し、サービス固有の有効な送信ボタンをクリックします。認証画面、iframe内、入力欄・ボタン不在、既存ドラフトありの場合はページ遷移や上書きをせず、そのビューだけ失敗にします。全対象は独立したPromiseとして最後まで実行し、画面ごとの成功・失敗をrendererへ返します。OSクリップボードやキーボード操作は使用しません。
+
+回答比較v1は回答DOMを読まず、直前の共通送信結果とビューIDだけをrendererに保持します。mainは候補IDを比較開始時に固定し、対象中のWebContentsだけを2～4画面の等幅縦分割（横一列）へbounds再配置します。除外ビューは破棄せず非表示にし、再追加時に同じWebContentsを戻します。比較内集中表示は比較対象1画面だけを全面へ広げ、解除すると比較対象の配置へ戻します。比較終了時は一時状態を破棄して通常の全ビュー配列からboundsを復元し、workspaceへは保存しません。比較中は通常の追加・削除・並び替え・選択・集中表示・ナビゲーション・保存操作を抑止します。
+
+共通Zoomはmain processの一時状態として倍率を1つだけ保持し、通常表示・比較表示・集中表示を問わず全外部WebContentsへ直接適用します。新規画面やワークスペース切替で生成される画面は作成直後に現在倍率を引き継ぎます。ページの再読込やWebContentsの再生成は行わず、倍率はworkspaceへ保存しません。
 
 ## API / Database / Authentication
 
