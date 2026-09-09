@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 720px; min-height: 100vh; }
 button, input, select { font: inherit; }
-.app-bar { height: 164px; border-bottom: 1px solid #303a34; background: #171d19; }
+.app-bar { height: 250px; border-bottom: 1px solid #303a34; background: #171d19; }
 .workspace-row, .saved-workspace-row, .workspace-save-form, .workspace-library-actions, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .bookmark-actions { display: flex; align-items: center; }
 .workspace-row { height: 58px; gap: 14px; padding: 0 14px; }
 .brand { gap: 8px; }
@@ -34,6 +34,20 @@ button:disabled { opacity: .35; cursor: default; }
 .saved-workspace-row select { width: 190px; padding: 0 6px; }
 .saved-workspace-row button { padding: 0 9px; cursor: pointer; }
 .workspace-error { overflow: hidden; color: #f09b95; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.common-prompt-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(300px, 1.4fr) auto; grid-template-rows: 48px 22px; gap: 4px 10px; height: 86px; padding: 7px 14px; border-top: 1px solid #28312c; }
+.common-prompt-row textarea { grid-row: 1 / 3; resize: none; padding: 7px 9px; border: 1px solid #3a463f; border-radius: 8px; outline: none; color: #e7ece9; background: #111713; font-size: .75rem; }
+.common-prompt-row textarea:focus { border-color: #75b895; }
+.prompt-targets { display: flex; min-width: 0; align-items: center; gap: 5px; margin: 0; padding: 3px 7px; border: 1px solid #303a34; border-radius: 8px; overflow-x: auto; }
+.prompt-targets legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.prompt-targets label { display: flex; min-width: 0; align-items: center; gap: 4px; padding: 3px 5px; border-radius: 6px; color: #cdd6d1; background: #222b26; font-size: .65rem; white-space: nowrap; }
+.prompt-targets input { margin: 0; accent-color: #91d8b5; }
+.prompt-service-icon { display: grid; width: 17px; height: 17px; place-items: center; border-radius: 5px; color: #102018; background: #91d8b5; font-size: .48rem; font-weight: 850; }
+.prompt-send-button { align-self: stretch; padding: 0 12px; border: 1px solid #75b895; border-radius: 8px; color: #102018; background: #91d8b5; font-size: .72rem; font-weight: 750; cursor: pointer; }
+.prompt-results { display: flex; grid-column: 2 / 4; gap: 5px; overflow-x: auto; font-size: .62rem; white-space: nowrap; }
+.prompt-results span { padding: 2px 6px; border-radius: 999px; }
+.prompt-results .sending { color: #d8e3dd; background: #35423a; }
+.prompt-results .success { color: #b9efd5; background: #234331; }
+.prompt-results .failure { color: #ffd1ce; background: #5b2926; }
 .bookmark-actions select { width: 190px; padding: 0 6px; }
 .navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }
 .navigation-bar > button { min-width: 32px; cursor: pointer; }
@@ -65,7 +79,7 @@ button:disabled { opacity: .35; cursor: default; }
 .service-unknown { color: #d2dbd6; background: #4b5650; }
 .launcher-cancel { display: block; margin-left: auto; padding: 7px 14px; border: 1px solid #3a463f; border-radius: 8px; color: #cdd6d1; background: transparent; cursor: pointer; }
 .launcher-error { position: fixed; z-index: 11; left: 50%; bottom: 20px; transform: translateX(-50%); margin: 0; padding: 8px 12px; border-radius: 8px; color: #ffd1ce; background: #5b2926; font-size: .78rem; }
-.bookmark-error { position: fixed; z-index: 11; right: 14px; top: 170px; margin: 0; padding: 7px 10px; border-radius: 8px; color: #ffd1ce; background: #5b2926; font-size: .72rem; }
+.bookmark-error { position: fixed; z-index: 11; right: 14px; top: 256px; margin: 0; padding: 7px 10px; border-radius: 8px; color: #ffd1ce; background: #5b2926; font-size: .72rem; }
 .startup-backdrop { z-index: 20; }
 .startup-selector { width: min(620px, 100%); padding: 24px; border: 1px solid #405148; border-radius: 18px; background: #171d19; box-shadow: 0 24px 70px rgb(0 0 0 / 45%); }
 .startup-selector h2 { margin: 2px 0 5px; font-size: 1.3rem; }

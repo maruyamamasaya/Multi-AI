@@ -90,6 +90,31 @@ Related tests:
 - `src/shared/ai-services.test.ts`
 - `src/renderer/App.test.tsx`
 
+## Common Prompt
+
+Primary paths:
+- `src/shared/prompt.ts`
+- `src/main/prompt-adapters/`
+- `src/main/main.ts`
+- `src/renderer/App.tsx`
+
+Search keywords:
+- `promptChannels`
+- `sendCommonPrompt`
+- `promptAdapters`
+- `buildPromptScript`
+- `common-prompt-row`
+
+Key entry points:
+- prompt IPC handler in `registerIpcHandlers`
+- `createPromptAdapter`
+- `sendCommonPrompt` in renderer
+
+Related tests:
+- `src/shared/prompt.test.ts`
+- `src/main/prompt-adapters/prompt-adapters.test.ts`
+- `src/renderer/App.test.tsx`
+
 ## Bookmarks
 
 Primary paths:

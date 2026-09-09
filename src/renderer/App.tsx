@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
   AI_SERVICES,
   UNKNOWN_AI_SERVICE,
@@ -8,6 +8,7 @@ import {
 } from '../shared/ai-services';
 import type { Bookmark } from '../shared/bookmarks';
 import type { NamedWorkspaceSummary } from '../shared/named-workspaces';
+import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 
 const initialStates: NavigationState[] = [
@@ -137,6 +138,12 @@ export const App = () => {
   const [startupWorkspaces, setStartupWorkspaces] = useState<NamedWorkspaceSummary[]>([]);
   const [isStartupSelectionOpen, setIsStartupSelectionOpen] = useState(false);
   const [startupError, setStartupError] = useState('');
+  const [commonPrompt, setCommonPrompt] = useState('');
+  const [promptTargets, setPromptTargets] = useState<Set<ViewId>>(new Set());
+  const [promptResults, setPromptResults] = useState<PromptSendResult[]>([]);
+  const [isSendingPrompt, setIsSendingPrompt] = useState(false);
+  const [promptError, setPromptError] = useState('');
+  const promptEligibility = useRef(new Map<ViewId, boolean>());
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
   const selectedBookmarkService = getAiServiceByUrl(selectedState?.url ?? '');
 
@@ -185,6 +192,19 @@ export const App = () => {
     window.addEventListener('keydown', cancelWithEscape);
     return () => window.removeEventListener('keydown', cancelWithEscape);
   }, [isLauncherOpen]);
+
+  useEffect(() => {
+    const previousEligibility = promptEligibility.current;
+    const nextEligibility = new Map(states.map((state) => [state.viewId, Boolean(getAiServiceByUrl(state.url))]));
+    setPromptTargets((current) => {
+      const next = new Set([...current].filter((viewId) => nextEligibility.get(viewId)));
+      states.forEach(({ viewId }) => {
+        if (nextEligibility.get(viewId) && !previousEligibility.get(viewId)) next.add(viewId);
+      });
+      return next;
+    });
+    promptEligibility.current = nextEligibility;
+  }, [states]);
 
   const openLauncher = async () => {
     setLauncherError('');
@@ -318,6 +338,31 @@ export const App = () => {
     }
   };
 
+  const togglePromptTarget = (viewId: ViewId) => {
+    setPromptTargets((current) => {
+      const next = new Set(current);
+      if (next.has(viewId)) next.delete(viewId);
+      else next.add(viewId);
+      return next;
+    });
+  };
+
+  const sendCommonPrompt = async (event: FormEvent) => {
+    event.preventDefault();
+    const targetIds = states.map(({ viewId }) => viewId).filter((viewId) => promptTargets.has(viewId));
+    if (!commonPrompt.trim() || !targetIds.length || isSendingPrompt) return;
+    setPromptError('');
+    setPromptResults([]);
+    setIsSendingPrompt(true);
+    try {
+      setPromptResults(await window.multiAI.sendPrompt(commonPrompt, targetIds));
+    } catch (reason) {
+      setPromptError(reason instanceof Error ? reason.message : '共通プロンプトを送信できませんでした。');
+    } finally {
+      setIsSendingPrompt(false);
+    }
+  };
+
   if (!selectedState) return null;
   const selectedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
 
@@ -390,6 +435,34 @@ export const App = () => {
         </div>
         {workspaceError ? <span className="workspace-error" role="alert">{workspaceError}</span> : null}
       </div>
+      <form className="common-prompt-row" aria-label="共通プロンプト送信" onSubmit={(event) => void sendCommonPrompt(event)}>
+        <textarea aria-label="共通プロンプト" value={commonPrompt} maxLength={20000} placeholder="複数AIへ送るプロンプト" onChange={(event) => setCommonPrompt(event.target.value)} />
+        <fieldset className="prompt-targets">
+          <legend>送信先</legend>
+          {states.map((state, index) => {
+            const currentService = getAiServiceByUrl(state.url);
+            const displayService = currentService ?? getAiService(state.serviceId) ?? UNKNOWN_AI_SERVICE;
+            return (
+              <label key={state.viewId} title={currentService ? displayService.name : '現在のページには送信できません'}>
+                <input type="checkbox" checked={promptTargets.has(state.viewId)} disabled={!currentService || isSendingPrompt} onChange={() => togglePromptTarget(state.viewId)} />
+                <span>{index + 1}</span>
+                <span className={`prompt-service-icon service-${displayService.id}`} aria-hidden="true">{displayService.icon}</span>
+                <span>{displayService.name}</span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <button className="prompt-send-button" type="submit" disabled={isSendingPrompt || !commonPrompt.trim() || promptTargets.size === 0}>{isSendingPrompt ? '送信中…' : '選択したAIへ送信'}</button>
+        <div className="prompt-results" aria-live="polite">
+          {isSendingPrompt ? [...promptTargets].map((viewId) => <span key={viewId} className="sending">画面 {states.findIndex((state) => state.viewId === viewId) + 1}: 送信中</span>) : null}
+          {promptResults.map((result) => {
+            const index = states.findIndex(({ viewId }) => viewId === result.viewId);
+            const service = getAiService(result.serviceId) ?? UNKNOWN_AI_SERVICE;
+            return <span key={result.viewId} className={result.status} title={result.message}>画面 {index + 1} {service.name}: {result.status === 'success' ? '成功' : '失敗'}</span>;
+          })}
+          {promptError ? <span className="failure" role="alert">{promptError}</span> : null}
+        </div>
+      </form>
       <NavigationBar state={selectedState} />
       {isLauncherOpen ? <ServiceLauncher onCancel={closeLauncher} onSelect={addView} /> : null}
       {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}

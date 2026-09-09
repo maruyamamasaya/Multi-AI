@@ -53,6 +53,7 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 - `readWorkspaceSnapshot` / `writeWorkspaceSnapshot`: URL配列と選択位置を保存・復元する。
 - `readNamedWorkspaceFile` / `writeNamedWorkspaceFile`: バージョン付きの名前付きワークスペース一覧を別JSONへ保存する。
 - `StartupWorkspaceSelector`: 名前付き保存がある起動時だけ、前回状態または保存構成を選ぶモーダルを表示する。
+- `promptAdapters`: サービス固有の入力欄・送信ボタンセレクタを個別ファイルに局所化し、共通の安全なDOM入力処理へ渡す。
 - preload: `contextBridge`で型付きの限定ナビゲーションAPIを公開する。
 - `App` / `ViewToolbar`: 各ビューのURL、履歴ボタン、読み込み状態を表示する。
 
@@ -74,6 +75,8 @@ rendererは各ビューに保持したサービスIDを使い、画面タブへ�
 
 ブックマーク追加時は現在URLのホストを `AI_SERVICES` と照合し、対応AIのページだけを表示名、正規化URL、サービスIDとともに保存します。同じURLは追加しません。旧 `bookmarks.json` のID、title、URLだけの項目はURLからサービスIDを補完し、未対応URL、不正項目、重複URLは安全に一覧から除外します。rendererは同じ中央定義からアイコン、AI名、表示名を一覧へ表示し、選択した会話URLを現在選択中のビューへ開きます。
 
+共通プロンプトはrendererからプロンプト本文と選択したビューIDだけをmainへ渡します。mainは各ビューの現在URLからサービスを再判定し、`src/main/prompt-adapters/` の対応adapterを各WebContents内で独立実行します。共通基盤は可視かつ空の入力欄だけへDOMイベント付きでテキストを設定し、サービス固有の有効な送信ボタンをクリックします。認証画面、iframe内、入力欄・ボタン不在、既存ドラフトありの場合はページ遷移や上書きをせず、そのビューだけ失敗にします。全対象は独立したPromiseとして最後まで実行し、画面ごとの成功・失敗をrendererへ返します。OSクリップボードやキーボード操作は使用しません。
+
 ## API / Database / Authentication
 
 - 外部API: なし
@@ -93,6 +96,7 @@ build前に既存成果物だけを削除し、TypeScriptがmain/preload/shared�
 
 - ローカル操作バーrendererの `nodeIntegration` は無効、`contextIsolation` は有効。preloadはTypeScript出力の共有モジュールを読み込むため明示的にsandbox対象外とし、公開APIを `contextBridge` に限定する。
 - preloadは任意IPCを公開せず、ビューID付きの固定ナビゲーション操作だけを公開。
+- 共通プロンプトIPCは空本文・対象なしを拒否し、現在存在するビューと対応AIホストだけへadapterを実行する。
 - 画面追加IPCは任意URLではなく、中央定義に存在するAIサービスIDだけを受け付ける。
 - URL入力はmainで正規化し、`http` と `https` 以外を拒否する。
 - 復元するURLにも同じ制限を適用し、不正なsnapshot全体を既定値へ戻す。

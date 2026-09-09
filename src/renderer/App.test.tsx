@@ -33,6 +33,7 @@ describe('App', () => {
       removeView: vi.fn().mockResolvedValue([states[0]]),
       selectView: vi.fn().mockResolvedValue(undefined),
       saveNamedWorkspace: vi.fn().mockResolvedValue([{ id: 'saved-1', name: '調査用', viewCount: 2, serviceIds: [], updatedAt: '2026-09-09T00:00:00.000Z' }]),
+      sendPrompt: vi.fn().mockResolvedValue([]),
       setFocusMode: vi.fn().mockResolvedValue(undefined),
       setLauncherOpen: vi.fn().mockResolvedValue(undefined),
       startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
@@ -287,6 +288,56 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByRole('button', { name: '画面 1: Claude' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '画面 2: Claude' })).toBeInTheDocument();
+  });
+
+  it('selects duplicate AI views independently as prompt targets', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'claude', url: 'https://claude.ai/chat/one' },
+      { ...states[1], serviceId: 'claude', url: 'https://claude.ai/chat/two' },
+    ]);
+    window.multiAI.sendPrompt = vi.fn().mockResolvedValue([
+      { viewId: 1, serviceId: 'claude', status: 'success', message: '送信操作を完了しました。' },
+    ]);
+    render(<App />);
+    const prompt = await screen.findByRole('textbox', { name: '共通プロンプト' });
+    const targets = screen.getAllByRole('checkbox');
+    await waitFor(() => expect(targets[0]).toBeChecked());
+    expect(targets[1]).toBeChecked();
+    fireEvent.click(targets[1]);
+    fireEvent.change(prompt, { target: { value: '同じ質問' } });
+    fireEvent.click(screen.getByRole('button', { name: '選択したAIへ送信' }));
+    await waitFor(() => expect(window.multiAI.sendPrompt).toHaveBeenCalledWith('同じ質問', [1]));
+    expect(await screen.findByText('画面 1 Claude: 成功')).toBeInTheDocument();
+  });
+
+  it('disables common prompt submission for empty text or zero targets', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'gemini', url: 'https://gemini.google.com/app' },
+    ]);
+    render(<App />);
+    const send = screen.getByRole('button', { name: '選択したAIへ送信' });
+    await waitFor(() => expect(screen.getByRole('checkbox')).toBeChecked());
+    expect(send).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: '共通プロンプト' }), { target: { value: '質問' } });
+    expect(send).toBeEnabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(send).toBeDisabled();
+  });
+
+  it('shows per-view success and failure without dropping either result', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/' },
+      { ...states[1], serviceId: 'perplexity', url: 'https://www.perplexity.ai/' },
+    ]);
+    window.multiAI.sendPrompt = vi.fn().mockResolvedValue([
+      { viewId: 1, serviceId: 'chatgpt', status: 'failure', message: '入力欄が見つかりません。' },
+      { viewId: 2, serviceId: 'perplexity', status: 'success', message: '送信操作を完了しました。' },
+    ]);
+    render(<App />);
+    fireEvent.change(await screen.findByRole('textbox', { name: '共通プロンプト' }), { target: { value: '比較して' } });
+    fireEvent.click(screen.getByRole('button', { name: '選択したAIへ送信' }));
+    expect(await screen.findByText('画面 1 ChatGPT: 失敗')).toBeInTheDocument();
+    expect(screen.getByText('画面 2 Perplexity: 成功')).toBeInTheDocument();
   });
 
   it('keeps the selected AI identity through an external authentication URL', async () => {

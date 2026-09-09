@@ -4,6 +4,7 @@ import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navig
 import type { Bookmark } from '../shared/bookmarks';
 import type { AiServiceId } from '../shared/ai-services';
 import type { NamedWorkspaceLoadResult, NamedWorkspaceSummary, StartupWorkspaceSelection, StartupWorkspaceState } from '../shared/named-workspaces';
+import type { PromptSendResult } from '../shared/prompt';
 
 declare global {
   interface Window {
@@ -29,6 +30,7 @@ declare global {
       reload: (viewId: ViewId) => Promise<void>;
       selectView: (viewId: ViewId) => Promise<void>;
       saveNamedWorkspace: (name: string, overwrite: boolean) => Promise<NamedWorkspaceSummary[]>;
+      sendPrompt: (prompt: string, viewIds: ViewId[]) => Promise<PromptSendResult[]>;
       setFocusMode: (viewId: ViewId, focused: boolean) => Promise<void>;
       setLauncherOpen: (open: boolean) => Promise<void>;
       startWorkspace: (selection: StartupWorkspaceSelection) => Promise<NamedWorkspaceLoadResult>;

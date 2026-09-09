@@ -15,6 +15,7 @@ import {
   type ViewMoveDirection,
 } from '../shared/navigation';
 import { workspaceChannels } from '../shared/workspace';
+import { promptChannels, type PromptSendResult } from '../shared/prompt';
 
 contextBridge.exposeInMainWorld('multiAI', {
   addBookmark: (viewId: ViewId): Promise<Bookmark[]> =>
@@ -58,6 +59,8 @@ contextBridge.exposeInMainWorld('multiAI', {
     ipcRenderer.invoke(workspaceChannels.selectView, viewId),
   saveNamedWorkspace: (name: string, overwrite: boolean): Promise<NamedWorkspaceSummary[]> =>
     ipcRenderer.invoke(namedWorkspaceChannels.save, name, overwrite),
+  sendPrompt: (prompt: string, viewIds: ViewId[]): Promise<PromptSendResult[]> =>
+    ipcRenderer.invoke(promptChannels.send, prompt, viewIds),
   startWorkspace: (selection: StartupWorkspaceSelection): Promise<NamedWorkspaceLoadResult> =>
     ipcRenderer.invoke(namedWorkspaceChannels.start, selection),
   setFocusMode: (viewId: ViewId, focused: boolean): Promise<void> =>

@@ -25,6 +25,7 @@ import {
   type NavigationState,
   type ViewId,
 } from '../shared/navigation';
+import { normalizePrompt, parsePromptTargets, promptChannels, type PromptSendResult } from '../shared/prompt';
 import {
   workspaceChannels,
   workspaceLayoutForViewCount,
@@ -32,9 +33,11 @@ import {
 } from '../shared/workspace';
 import { calculateViewBounds } from './layout';
 import { readNamedWorkspaceFile, writeNamedWorkspaceFile } from './named-workspace-store';
+import { promptAdapters } from './prompt-adapters';
+import type { AdapterExecutionResult } from './prompt-adapters/types';
 import { readWorkspaceSnapshot, writeWorkspaceSnapshot } from './workspace-store';
 
-const TOOLBAR_HEIGHT = 164;
+const TOOLBAR_HEIGHT = 250;
 const DEFAULT_URLS = ['https://example.com/'] as const;
 const MAX_VIEWS = 4;
 
@@ -252,8 +255,51 @@ const saveBookmarks = async (bookmarks: Bookmark[]): Promise<void> => {
   await writeFile(bookmarksFile(), `${JSON.stringify(bookmarks, null, 2)}\n`, 'utf8');
 };
 
+const sendCommonPrompt = async (input: unknown, targetInput: unknown): Promise<PromptSendResult[]> => {
+  const prompt = normalizePrompt(input);
+  const targetIds = parsePromptTargets(targetInput);
+  return Promise.all(targetIds.map(async (viewId): Promise<PromptSendResult> => {
+    let pageView: PageView;
+    try {
+      pageView = getPageView(viewId);
+    } catch {
+      return { viewId, serviceId: null, status: 'failure', message: '対象の画面が見つかりません。' };
+    }
+    const currentUrl = pageView.view.webContents.getURL() || pageView.lastUrl;
+    const service = getAiServiceByUrl(currentUrl);
+    if (!service) {
+      return { viewId, serviceId: pageView.serviceId, status: 'failure', message: '対応AIサービスの入力画面ではありません。' };
+    }
+    const adapter = promptAdapters.get(service.id);
+    if (!adapter) {
+      return { viewId, serviceId: service.id, status: 'failure', message: 'このAIサービスの送信方式がありません。' };
+    }
+    try {
+      const result: unknown = await pageView.view.webContents.executeJavaScript(adapter.buildScript(prompt), true);
+      if (!result || typeof result !== 'object') throw new Error('送信結果を確認できませんでした。');
+      const execution = result as Partial<AdapterExecutionResult>;
+      return {
+        viewId,
+        serviceId: service.id,
+        status: execution.success ? 'success' : 'failure',
+        message: typeof execution.message === 'string' ? execution.message : '送信結果を確認できませんでした。',
+      };
+    } catch (error) {
+      return {
+        viewId,
+        serviceId: service.id,
+        status: 'failure',
+        message: error instanceof Error ? error.message : '送信処理に失敗しました。',
+      };
+    }
+  }));
+};
+
 const registerIpcHandlers = (): void => {
   ipcMain.handle('app:ping', () => 'pong');
+  ipcMain.handle(promptChannels.send, (_event, prompt: unknown, viewIds: unknown) =>
+    sendCommonPrompt(prompt, viewIds),
+  );
   ipcMain.handle(navigationChannels.getStates, getNavigationStates);
   ipcMain.handle(navigationChannels.add, (_event, serviceId: unknown) => addView(serviceId));
   ipcMain.handle(navigationChannels.move, (_event, viewId: unknown, direction: unknown) =>
