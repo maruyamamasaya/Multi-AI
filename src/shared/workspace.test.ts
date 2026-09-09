@@ -6,22 +6,64 @@ const fallback = ['https://example.com/', 'https://example.org/'];
 describe('parseWorkspaceSnapshot', () => {
   it('restores valid URLs and selection', () => {
     expect(parseWorkspaceSnapshot({ urls: ['example.net'], selectedIndex: 0 }, fallback)).toEqual({
+      viewCount: 1,
       urls: ['https://example.net/'],
+      serviceIds: [null],
       selectedIndex: 0,
+      layout: 'single',
     });
   });
 
   it('falls back when a URL uses a dangerous protocol', () => {
     expect(parseWorkspaceSnapshot({ urls: ['file:///secret'], selectedIndex: 0 }, fallback)).toEqual({
+      viewCount: 2,
       urls: fallback,
+      serviceIds: [null, null],
       selectedIndex: 0,
+      layout: 'columns',
     });
   });
 
   it('repairs an invalid selected index', () => {
     expect(parseWorkspaceSnapshot({ urls: ['https://example.net'], selectedIndex: 9 }, fallback)).toEqual({
+      viewCount: 1,
       urls: ['https://example.net/'],
+      serviceIds: [null],
       selectedIndex: 0,
+      layout: 'single',
     });
+  });
+
+  it('derives and repairs the saved count and layout from valid URLs', () => {
+    expect(
+      parseWorkspaceSnapshot(
+        {
+          viewCount: 4,
+          urls: ['example.com', 'example.org', 'example.net'],
+          selectedIndex: 2,
+          layout: 'grid',
+        },
+        fallback,
+      ),
+    ).toEqual({
+      viewCount: 3,
+      urls: ['https://example.com/', 'https://example.org/', 'https://example.net/'],
+      serviceIds: [null, null, null],
+      selectedIndex: 2,
+      layout: 'primary-left',
+    });
+  });
+
+  it('restores a saved service identity across an authentication redirect', () => {
+    expect(
+      parseWorkspaceSnapshot(
+        {
+          urls: ['https://accounts.google.com/signin'],
+          serviceIds: ['notebooklm'],
+          selectedIndex: 0,
+        },
+        fallback,
+      ),
+    ).toMatchObject({ serviceIds: ['notebooklm'] });
   });
 });

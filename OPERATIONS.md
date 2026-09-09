@@ -24,6 +24,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 
 起動後に左右のサンプルページを表示するには、`https://example.com/` と `https://example.org/` へのネットワーク接続が必要です。
 
+「＋」を押すとAIサービス選択ランチャーが開きます。ChatGPT、Claude、Gemini、Perplexity、Grok、Microsoft Copilot、NotebookLMから選ぶと新しい画面が追加されます。キャンセルすると現在の画面構成を変更せず戻ります。画面は最大4つです。
+
+各画面タブには画面番号に加えて、現在のAIサービスのアイコンと名称が表示されます。対応AI内の会話ページへ移動しても表示は維持され、未対応URLでは `AIサービス` と表示されます。
+
 ## 環境変数
 
 現在必要な環境変数はありません。追加時は値を記載せず、変数名、用途、必須性をここへ記録します。
@@ -34,7 +38,7 @@ Databaseは未導入で、セットアップやmigrationはありません。
 
 ## External Services
 
-AIサービスとの接続は未実装です。実装後も各サービスの資格情報をアプリ独自に保存しません。
+対応AIの入口URLは `src/shared/ai-services.ts` で一元管理します。各サービスの資格情報はアプリ独自に保存しません。
 
 ## Build
 
@@ -54,7 +58,7 @@ npm run build
 - Cookieなどのセッションデータをログやセッション記録へ含めない。
 - 外部サービスのURL、権限要求、ポップアップは信頼済みとして自動許可しない。
 - ブックマークはElectronの `userData` 配下にある `bookmarks.json` へ保存され、リポジトリには含まれない。
-- 画面数、URL、選択位置は同じ `userData` 配下の `workspace.json` へ保存される。
+- 画面数、URL、AIサービスID、選択位置、分割レイアウトは同じ `userData` 配下の `workspace.json` へ保存される。ファイルがない、または壊れている場合は1画面で起動する。
 
 ## Troubleshooting
 

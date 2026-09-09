@@ -12,8 +12,12 @@ h1 { margin: 0; font-size: .9rem; }
 .view-tabs button, .workspace-actions button, .bookmark-actions button, .bookmark-actions select, .navigation-bar > button {
   height: 30px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26;
 }
-.view-tabs button { padding: 0 12px; cursor: pointer; }
+.view-tabs button { display: flex; min-width: 0; align-items: center; gap: 6px; padding: 0 9px 0 6px; cursor: pointer; }
 .view-tabs button.active { border-color: #91d8b5; color: #b9efd5; background: #26382e; }
+.view-number { display: grid; width: 18px; height: 18px; flex: 0 0 auto; place-items: center; border-radius: 5px; color: #849189; background: #161c18; font-size: .62rem; font-weight: 750; }
+.view-tabs button.active .view-number { color: #b9efd5; background: #1d2b23; }
+.view-service-icon { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border-radius: 6px; color: #102018; background: #91d8b5; font-size: .56rem; font-weight: 850; }
+.view-service-name { overflow: hidden; max-width: 112px; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; font-weight: 650; }
 .workspace-actions, .bookmark-actions { gap: 4px; }
 .workspace-actions button, .bookmark-actions button { min-width: 30px; cursor: pointer; }
 button:disabled { opacity: .35; cursor: default; }
@@ -28,4 +32,25 @@ button:disabled { opacity: .35; cursor: default; }
 .loading-indicator { position: absolute; top: 10px; right: 10px; width: 12px; height: 12px; border: 2px solid #496154; border-top-color: #91d8b5; border-radius: 50%; animation: spin .8s linear infinite; }
 .url-error { position: absolute; left: 118px; bottom: 2px; color: #f09b95; font-size: .65rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.launcher-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(8 12 9 / 78%); backdrop-filter: blur(7px); }
+.service-launcher { width: min(680px, 100%); padding: 24px; border: 1px solid #405148; border-radius: 18px; background: #171d19; box-shadow: 0 24px 70px rgb(0 0 0 / 45%); }
+.launcher-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.launcher-heading h2 { margin: 2px 0 6px; font-size: 1.35rem; }
+.launcher-heading p { margin: 0; color: #9eaaa3; font-size: .82rem; }
+.launcher-heading .launcher-eyebrow { color: #91d8b5; font-size: .64rem; font-weight: 800; letter-spacing: .14em; }
+.launcher-close { width: 32px; height: 32px; border: 1px solid #3a463f; border-radius: 8px; color: #cdd6d1; background: #222b26; cursor: pointer; }
+.service-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 22px 0 18px; }
+.service-grid button { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 9px 12px; border: 1px solid #35423a; border-radius: 11px; color: #e7ece9; background: #202823; font-weight: 650; text-align: left; cursor: pointer; }
+.service-grid button:hover, .service-grid button:focus-visible { border-color: #91d8b5; background: #26352d; outline: none; }
+.service-mark { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 9px; color: #102018; background: #91d8b5; font-size: .75rem; font-weight: 850; }
+.service-claude { background: #d7a482; }
+.service-gemini { background: #a9bff5; }
+.service-perplexity { background: #83d4ca; }
+.service-grok { color: #e7ece9; background: #4a514d; }
+.service-copilot { background: #a8c7fa; }
+.service-notebooklm { background: #f2cb7d; }
+.service-unknown { color: #d2dbd6; background: #4b5650; }
+.launcher-cancel { display: block; margin-left: auto; padding: 7px 14px; border: 1px solid #3a463f; border-radius: 8px; color: #cdd6d1; background: transparent; cursor: pointer; }
+.launcher-error { position: fixed; z-index: 11; left: 50%; bottom: 20px; transform: translateX(-50%); margin: 0; padding: 8px 12px; border-radius: 8px; color: #ffd1ce; background: #5b2926; font-size: .78rem; }
+@media (max-width: 760px) { .service-grid { grid-template-columns: 1fr; } }
 @keyframes spin { to { transform: rotate(360deg); } }

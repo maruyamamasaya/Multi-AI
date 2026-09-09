@@ -1,7 +1,10 @@
+import type { AiServiceId } from './ai-services';
+
 export type ViewId = number;
 
 export interface NavigationState {
   viewId: ViewId;
+  serviceId: AiServiceId | null;
   url: string;
   title: string;
   canGoBack: boolean;

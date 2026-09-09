@@ -2,12 +2,13 @@ export {};
 
 import type { NavigationState, ViewId } from '../shared/navigation';
 import type { Bookmark } from '../shared/bookmarks';
+import type { AiServiceId } from '../shared/ai-services';
 
 declare global {
   interface Window {
     multiAI: {
       addBookmark: (viewId: ViewId) => Promise<Bookmark[]>;
-      addView: () => Promise<NavigationState[]>;
+      addView: (serviceId: AiServiceId) => Promise<NavigationState[]>;
       back: (viewId: ViewId) => Promise<void>;
       forward: (viewId: ViewId) => Promise<void>;
       getNavigationStates: () => Promise<NavigationState[]>;
@@ -21,6 +22,7 @@ declare global {
       removeView: (viewId: ViewId) => Promise<NavigationState[]>;
       reload: (viewId: ViewId) => Promise<void>;
       selectView: (viewId: ViewId) => Promise<void>;
+      setLauncherOpen: (open: boolean) => Promise<void>;
     };
   }
 }

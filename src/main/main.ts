@@ -2,6 +2,12 @@ import { app, BrowserWindow, ipcMain, session, WebContentsView } from 'electron'
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  getAiService,
+  getAiServiceByUrl,
+  launcherChannels,
+  type AiServiceId,
+} from '../shared/ai-services';
 import { bookmarkChannels, type Bookmark } from '../shared/bookmarks';
 import {
   navigationChannels,
@@ -9,17 +15,22 @@ import {
   type NavigationState,
   type ViewId,
 } from '../shared/navigation';
-import { workspaceChannels, type WorkspaceSnapshot } from '../shared/workspace';
+import {
+  workspaceChannels,
+  workspaceLayoutForViewCount,
+  type WorkspaceSnapshot,
+} from '../shared/workspace';
 import { calculateViewBounds } from './layout';
 import { readWorkspaceSnapshot, writeWorkspaceSnapshot } from './workspace-store';
 
 const TOOLBAR_HEIGHT = 126;
-const DEFAULT_URLS = ['https://example.com/', 'https://example.org/'] as const;
+const DEFAULT_URLS = ['https://example.com/'] as const;
 const MAX_VIEWS = 4;
 
 interface PageView {
   id: ViewId;
   lastUrl: string;
+  serviceId: AiServiceId | null;
   view: WebContentsView;
 }
 
@@ -28,6 +39,8 @@ let pageViews: PageView[] = [];
 let nextViewId = 1;
 let selectedViewId: ViewId | null = null;
 let workspaceWriteQueue = Promise.resolve();
+let isRestoringWorkspace = false;
+let isLauncherOpen = false;
 
 const getPageView = (viewId: unknown): PageView => {
   if (!Number.isInteger(viewId)) throw new Error('対象のビューが見つかりません。');
@@ -36,8 +49,9 @@ const getPageView = (viewId: unknown): PageView => {
   return pageView;
 };
 
-const getNavigationState = ({ id, lastUrl, view }: PageView): NavigationState => ({
+const getNavigationState = ({ id, lastUrl, serviceId, view }: PageView): NavigationState => ({
   viewId: id,
+  serviceId,
   url: view.webContents.getURL() || lastUrl,
   title: view.webContents.getTitle(),
   canGoBack: view.webContents.navigationHistory.canGoBack(),
@@ -51,10 +65,13 @@ const workspaceFile = (): string => path.join(app.getPath('userData'), 'workspac
 
 const persistWorkspace = (): Promise<void> => {
   const snapshot: WorkspaceSnapshot = {
+    viewCount: pageViews.length,
     urls: pageViews.map(({ lastUrl, view }) => view.webContents.getURL() || lastUrl),
+    serviceIds: pageViews.map(({ serviceId }) => serviceId),
     selectedIndex: Math.max(0, pageViews.findIndex(({ id }) => id === selectedViewId)),
+    layout: workspaceLayoutForViewCount(pageViews.length),
   };
-  workspaceWriteQueue = workspaceWriteQueue.then(() =>
+  workspaceWriteQueue = workspaceWriteQueue.catch(() => undefined).then(() =>
     writeWorkspaceSnapshot(workspaceFile(), snapshot),
   );
   return workspaceWriteQueue;
@@ -67,11 +84,16 @@ const updateViewBounds = (): void => {
   pageViews.forEach(({ view }, index) => view.setBounds(bounds[index]));
 };
 
-const createPageView = (url: string): PageView => {
+const createPageView = (
+  url: string,
+  serviceId: AiServiceId | null = getAiServiceByUrl(url)?.id ?? null,
+  loadImmediately = true,
+): PageView => {
   if (!mainWindow) throw new Error('アプリウィンドウがありません。');
   const pageView: PageView = {
     id: nextViewId++,
     lastUrl: url,
+    serviceId,
     view: new WebContentsView({
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
     }),
@@ -86,26 +108,31 @@ const createPageView = (url: string): PageView => {
   pageView.view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   pageView.view.webContents.on('did-navigate', () => {
     publishState();
-    void persistWorkspace();
+    if (!isRestoringWorkspace) void persistWorkspace().catch(() => undefined);
   });
   pageView.view.webContents.on('did-navigate-in-page', () => {
     publishState();
-    void persistWorkspace();
+    if (!isRestoringWorkspace) void persistWorkspace().catch(() => undefined);
   });
   pageView.view.webContents.on('did-start-loading', publishState);
   pageView.view.webContents.on('did-stop-loading', publishState);
   pageView.view.webContents.on('page-title-updated', publishState);
   mainWindow.contentView.addChildView(pageView.view);
-  void pageView.view.webContents.loadURL(url);
+  pageView.view.setVisible(!isLauncherOpen);
+  if (loadImmediately) void pageView.view.webContents.loadURL(url).catch(() => undefined);
   return pageView;
 };
 
-const addView = async (url: string = DEFAULT_URLS[0]): Promise<NavigationState[]> => {
+const addView = async (serviceId: unknown): Promise<NavigationState[]> => {
   if (pageViews.length >= MAX_VIEWS) throw new Error('画面は4つまで追加できます。');
-  const pageView = createPageView(url);
+  const service = getAiService(serviceId);
+  if (!service) throw new Error('AIサービスを選択してください。');
+  const url = service.url;
+  const pageView = createPageView(url, service.id, false);
   pageViews.push(pageView);
   selectedViewId = pageView.id;
   updateViewBounds();
+  void pageView.view.webContents.loadURL(url).catch(() => undefined);
   await persistWorkspace();
   return getNavigationStates();
 };
@@ -141,12 +168,13 @@ const saveBookmarks = async (bookmarks: Bookmark[]): Promise<void> => {
 const registerIpcHandlers = (): void => {
   ipcMain.handle('app:ping', () => 'pong');
   ipcMain.handle(navigationChannels.getStates, getNavigationStates);
-  ipcMain.handle(navigationChannels.add, () => addView());
+  ipcMain.handle(navigationChannels.add, (_event, serviceId: unknown) => addView(serviceId));
   ipcMain.handle(navigationChannels.remove, (_event, viewId: unknown) => removeView(viewId));
   ipcMain.handle(navigationChannels.navigate, async (_event, viewId: unknown, input: unknown) => {
     if (typeof input !== 'string') throw new Error('URLを入力してください。');
     const pageView = getPageView(viewId);
     pageView.lastUrl = normalizeNavigationUrl(input);
+    pageView.serviceId = getAiServiceByUrl(pageView.lastUrl)?.id ?? null;
     await pageView.view.webContents.loadURL(pageView.lastUrl);
     await persistWorkspace();
   });
@@ -165,6 +193,11 @@ const registerIpcHandlers = (): void => {
   ipcMain.handle(workspaceChannels.selectView, async (_event, viewId: unknown) => {
     selectedViewId = getPageView(viewId).id;
     await persistWorkspace();
+  });
+  ipcMain.handle(launcherChannels.setOpen, (_event, open: unknown) => {
+    if (typeof open !== 'boolean') throw new Error('ランチャーの状態が不正です。');
+    isLauncherOpen = open;
+    pageViews.forEach(({ view }) => view.setVisible(!open));
   });
 
   ipcMain.handle(bookmarkChannels.getAll, readBookmarks);
@@ -187,7 +220,10 @@ const registerIpcHandlers = (): void => {
   ipcMain.handle(bookmarkChannels.open, async (_event, viewId: unknown, bookmarkId: unknown) => {
     const bookmark = (await readBookmarks()).find(({ id }) => id === bookmarkId);
     if (!bookmark) throw new Error('ブックマークが見つかりません。');
-    await getPageView(viewId).view.webContents.loadURL(normalizeNavigationUrl(bookmark.url));
+    const pageView = getPageView(viewId);
+    pageView.lastUrl = normalizeNavigationUrl(bookmark.url);
+    pageView.serviceId = getAiServiceByUrl(pageView.lastUrl)?.id ?? null;
+    await pageView.view.webContents.loadURL(pageView.lastUrl);
   });
 };
 
@@ -201,15 +237,33 @@ const createMainWindow = (workspace: WorkspaceSnapshot): BrowserWindow => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       preload: path.join(__dirname, '../preload/preload.js'),
     },
   });
   mainWindow = window;
+  isLauncherOpen = false;
   void window.loadFile(path.join(__dirname, '../../dist-renderer/index.html'));
-  pageViews = workspace.urls.map(createPageView);
+  isRestoringWorkspace = true;
+  pageViews = workspace.urls.map((url, index) =>
+    createPageView(url, workspace.serviceIds[index] ?? null, false),
+  );
   selectedViewId = pageViews[workspace.selectedIndex]?.id ?? pageViews[0].id;
   updateViewBounds();
+  pageViews.forEach(({ lastUrl, view }) => {
+    void view.webContents.loadURL(lastUrl).catch(() => undefined);
+  });
+  isRestoringWorkspace = false;
   window.on('resize', updateViewBounds);
+  let mayClose = false;
+  window.on('close', (event) => {
+    if (mayClose) return;
+    event.preventDefault();
+    void persistWorkspace().finally(() => {
+      mayClose = true;
+      window.close();
+    });
+  });
   window.on('closed', () => {
     mainWindow = null;
     pageViews = [];

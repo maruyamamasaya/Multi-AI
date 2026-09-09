@@ -1,10 +1,16 @@
 import { type FormEvent, useEffect, useState } from 'react';
+import {
+  AI_SERVICES,
+  UNKNOWN_AI_SERVICE,
+  getAiService,
+  getAiServiceByUrl,
+  type AiServiceId,
+} from '../shared/ai-services';
 import type { Bookmark } from '../shared/bookmarks';
 import type { NavigationState, ViewId } from '../shared/navigation';
 
 const initialStates: NavigationState[] = [
-  { viewId: 1, url: 'https://example.com/', title: '', canGoBack: false, canGoForward: false, isLoading: true },
-  { viewId: 2, url: 'https://example.org/', title: '', canGoBack: false, canGoForward: false, isLoading: true },
+  { viewId: 1, serviceId: null, url: 'https://example.com/', title: '', canGoBack: false, canGoForward: false, isLoading: true },
 ];
 
 const NavigationBar = ({ state }: { state: NavigationState }) => {
@@ -47,12 +53,44 @@ const NavigationBar = ({ state }: { state: NavigationState }) => {
   );
 };
 
+const ServiceLauncher = ({
+  onCancel,
+  onSelect,
+}: {
+  onCancel: () => Promise<void>;
+  onSelect: (serviceId: AiServiceId) => Promise<void>;
+}) => (
+  <div className="launcher-backdrop">
+    <section className="service-launcher" role="dialog" aria-modal="true" aria-labelledby="launcher-title">
+      <div className="launcher-heading">
+        <div>
+          <p className="launcher-eyebrow">NEW VIEW</p>
+          <h2 id="launcher-title">AIサービスを選択</h2>
+          <p>新しい画面で使うサービスを選んでください。</p>
+        </div>
+        <button type="button" className="launcher-close" aria-label="キャンセル" onClick={() => void onCancel()}>×</button>
+      </div>
+      <div className="service-grid">
+        {AI_SERVICES.map((service) => (
+          <button type="button" key={service.id} aria-label={service.name} onClick={() => void onSelect(service.id)}>
+            <span className={`service-mark service-${service.id}`} aria-hidden="true">{service.icon}</span>
+            <span>{service.name}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="launcher-cancel" onClick={() => void onCancel()}>キャンセル</button>
+    </section>
+  </div>
+);
+
 export const App = () => {
   const [states, setStates] = useState(initialStates);
   const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
   const [selectedViewId, setSelectedViewId] = useState<ViewId>(1);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [selectedBookmarkId, setSelectedBookmarkId] = useState('');
+  const [isLauncherOpen, setIsLauncherOpen] = useState(false);
+  const [launcherError, setLauncherError] = useState('');
   const selectedState = states.find(({ viewId }) => viewId === selectedViewId) ?? states[0];
 
   useEffect(() => {
@@ -77,10 +115,36 @@ export const App = () => {
     return unsubscribe;
   }, []);
 
-  const addView = async () => {
-    const next = await window.multiAI.addView();
-    setStates(next);
-    setSelectedViewId(next.at(-1)?.viewId ?? selectedViewId);
+  useEffect(() => {
+    if (!isLauncherOpen) return undefined;
+    const cancelWithEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') void closeLauncher();
+    };
+    window.addEventListener('keydown', cancelWithEscape);
+    return () => window.removeEventListener('keydown', cancelWithEscape);
+  }, [isLauncherOpen]);
+
+  const openLauncher = async () => {
+    setLauncherError('');
+    await window.multiAI.setLauncherOpen(true);
+    setIsLauncherOpen(true);
+  };
+
+  async function closeLauncher() {
+    await window.multiAI.setLauncherOpen(false);
+    setIsLauncherOpen(false);
+  }
+
+  const addView = async (serviceId: AiServiceId) => {
+    setLauncherError('');
+    try {
+      const next = await window.multiAI.addView(serviceId);
+      setStates(next);
+      setSelectedViewId(next.at(-1)?.viewId ?? selectedViewId);
+      await closeLauncher();
+    } catch (reason) {
+      setLauncherError(reason instanceof Error ? reason.message : '画面を追加できませんでした。');
+    }
   };
 
   const removeView = async () => {
@@ -115,15 +179,28 @@ export const App = () => {
       <div className="workspace-row">
         <div className="brand"><span className="brand-mark">M</span><h1>Multi-AI</h1></div>
         <nav className="view-tabs" aria-label="画面選択">
-          {states.map((state, index) => (
-            <button key={state.viewId} disabled={!isWorkspaceReady} className={state.viewId === selectedViewId ? 'active' : ''} onClick={() => void selectView(state.viewId)}>
-              画面 {index + 1}
-            </button>
-          ))}
+          {states.map((state, index) => {
+            const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
+            const isSelected = state.viewId === selectedViewId;
+            return (
+              <button
+                key={state.viewId}
+                disabled={!isWorkspaceReady}
+                className={isSelected ? 'active' : ''}
+                aria-current={isSelected ? 'page' : undefined}
+                aria-label={`画面 ${index + 1}: ${service.name}`}
+                onClick={() => void selectView(state.viewId)}
+              >
+                <span className="view-number">{index + 1}</span>
+                <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
+                <span className="view-service-name">{service.name}</span>
+              </button>
+            );
+          })}
         </nav>
         <div className="workspace-actions">
           <button aria-label="画面を減らす" disabled={!isWorkspaceReady || states.length === 1} onClick={() => void removeView()}>−</button>
-          <button aria-label="画面を追加" disabled={!isWorkspaceReady || states.length === 4} onClick={() => void addView()}>＋</button>
+          <button aria-label="画面を追加" disabled={!isWorkspaceReady || states.length === 4} onClick={() => void openLauncher()}>＋</button>
         </div>
         <div className="bookmark-actions">
           <button aria-label="現在のページをブックマーク" onClick={() => void addBookmark()}>☆</button>
@@ -136,6 +213,8 @@ export const App = () => {
         </div>
       </div>
       <NavigationBar state={selectedState} />
+      {isLauncherOpen ? <ServiceLauncher onCancel={closeLauncher} onSelect={addView} /> : null}
+      {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}
     </header>
   );
 };

@@ -60,6 +60,31 @@ Key entry points:
 Related tests:
 - `src/main/layout.test.ts`
 
+## AI Service Launcher
+
+Primary paths:
+- `src/shared/ai-services.ts`
+- `src/renderer/App.tsx`
+- `src/main/main.ts`
+
+Search keywords:
+- `AI_SERVICES`
+- `getAiService`
+- `getAiServiceByUrl`
+- `UNKNOWN_AI_SERVICE`
+- `ServiceLauncher`
+- `launcherChannels`
+
+Key entry points:
+- `ServiceLauncher`
+- `addView`
+- AI名・アイコン付き画面タブ in `App`
+- launcher IPC handler in `registerIpcHandlers`
+
+Related tests:
+- `src/shared/ai-services.test.ts`
+- `src/renderer/App.test.tsx`
+
 ## Bookmarks
 
 Primary paths:

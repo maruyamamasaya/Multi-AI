@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { bookmarkChannels, type Bookmark } from '../shared/bookmarks';
+import { launcherChannels, type AiServiceId } from '../shared/ai-services';
 import {
   navigationChannels,
   type NavigationState,
@@ -10,7 +11,8 @@ import { workspaceChannels } from '../shared/workspace';
 contextBridge.exposeInMainWorld('multiAI', {
   addBookmark: (viewId: ViewId): Promise<Bookmark[]> =>
     ipcRenderer.invoke(bookmarkChannels.add, viewId),
-  addView: (): Promise<NavigationState[]> => ipcRenderer.invoke(navigationChannels.add),
+  addView: (serviceId: AiServiceId): Promise<NavigationState[]> =>
+    ipcRenderer.invoke(navigationChannels.add, serviceId),
   back: (viewId: ViewId): Promise<void> => ipcRenderer.invoke(navigationChannels.back, viewId),
   forward: (viewId: ViewId): Promise<void> =>
     ipcRenderer.invoke(navigationChannels.forward, viewId),
@@ -36,4 +38,5 @@ contextBridge.exposeInMainWorld('multiAI', {
   reload: (viewId: ViewId): Promise<void> => ipcRenderer.invoke(navigationChannels.reload, viewId),
   selectView: (viewId: ViewId): Promise<void> =>
     ipcRenderer.invoke(workspaceChannels.selectView, viewId),
+  setLauncherOpen: (open: boolean): Promise<void> => ipcRenderer.invoke(launcherChannels.setOpen, open),
 });

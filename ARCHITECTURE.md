@@ -44,6 +44,7 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 
 - `createMainWindow`: 安全なwebPreferencesで `BrowserWindow` を生成する。
 - `addView` / `removeView`: 1～4個の外部ビューを管理する。
+- `AI_SERVICES` / `ServiceLauncher`: 対応AIの識別子・表示名・アイコン・URL・判定ホストを一元管理し、画面追加前の選択UIを提供する。
 - `calculateViewBounds`: 画面数に応じて全画面、2分割、3分割、2×2を計算する。
 - `registerIpcHandlers`: ビューIDを検証し、URL移動と履歴操作を処理する。
 - `readBookmarks` / `saveBookmarks`: 名前とURLだけをuserData内のJSONへ保存する。
@@ -53,7 +54,11 @@ build成果物は `dist-electron/` と `dist-renderer/` に生成され、Git管
 
 ## Data Flow
 
-mainは起動時に `workspace.json` を検証して画面数、URL、選択位置を復元します。追加・削除・URL移動・選択変更のたびに最新snapshotを書き込みます。保存データがない、壊れている、危険なURLを含む場合は既定の2画面へ戻します。
+mainは起動時に `workspace.json` を検証して画面数、URL、選択位置、分割レイアウトを復元します。追加・削除・URL移動・選択変更と終了時に最新snapshotを書き込みます。保存データがない、壊れている、危険なURLを含む場合は安全な既定の1画面へ戻します。全ビューを管理配列へ登録して選択状態と配置を確定してからURLロードを開始し、復元中のロードイベントが未初期化状態を参照しないようにします。
+
+画面追加時はrendererのランチャーが `src/shared/ai-services.ts` の候補を表示し、選択したサービスIDだけをmainへ渡します。mainは同じ定義からIDを検証して対応URLを開きます。ランチャー表示中は外部 `WebContentsView` を一時的に隠し、キャンセル時はビューや保存状態を変更せず再表示します。
+
+rendererは各ビューに保持したサービスIDを使い、画面タブへ番号、サービスアイコン、AI名を表示します。サービスIDはURLとともにworkspaceへ保存し、会話ページや外部認証ページへ遷移しても表示を維持します。旧workspaceでは対応ホストからIDを推定し、未対応URLは汎用の `AIサービス` 表示へ安全にフォールバックします。
 
 ## API / Database / Authentication
 
@@ -61,9 +66,9 @@ mainは起動時に `workspace.json` を検証して画面数、URL、選択位�
 - Database: なし
 - アプリ独自認証: なし
 - Environment Variables: なし
-- External Services: `example.com`、`example.org` を公開ページの表示確認に使用
+- External Services: ChatGPT、Claude、Gemini、Perplexity、Grok、Microsoft Copilot、NotebookLM。正確なURLは `src/shared/ai-services.ts` を正本とする
 - Local Data: Electron `userData/bookmarks.json` にブックマークだけを保存
-- Workspace Data: Electron `userData/workspace.json` にURL配列と選択インデックスを保存
+- Workspace Data: Electron `userData/workspace.json` に画面数、URL配列、サービスID配列、選択インデックス、分割レイアウトを保存
 
 ## Build and Deployment
 
@@ -71,9 +76,9 @@ build前に既存成果物だけを削除し、TypeScriptがmain/preload/shared�
 
 ## Security Boundaries
 
-- rendererの `nodeIntegration` は無効。
-- `contextIsolation` は有効。
+- ローカル操作バーrendererの `nodeIntegration` は無効、`contextIsolation` は有効。preloadはTypeScript出力の共有モジュールを読み込むため明示的にsandbox対象外とし、公開APIを `contextBridge` に限定する。
 - preloadは任意IPCを公開せず、ビューID付きの固定ナビゲーション操作だけを公開。
+- 画面追加IPCは任意URLではなく、中央定義に存在するAIサービスIDだけを受け付ける。
 - URL入力はmainで正規化し、`http` と `https` 以外を拒否する。
 - 復元するURLにも同じ制限を適用し、不正なsnapshot全体を既定値へ戻す。
 - 外部ビューはsandbox、context isolation有効、Node.js integration無効。
