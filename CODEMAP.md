@@ -50,12 +50,14 @@ Search keywords:
 - `calculateViewBounds`
 - `addView`
 - `removeView`
+- `moveView`
 - `setPermissionRequestHandler`
 - `setWindowOpenHandler`
 
 Key entry points:
 - `createPageView`
 - `attachPageViews`
+- `moveView`
 
 Related tests:
 - `src/main/layout.test.ts`

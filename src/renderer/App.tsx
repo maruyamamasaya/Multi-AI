@@ -7,7 +7,7 @@ import {
   type AiServiceId,
 } from '../shared/ai-services';
 import type { Bookmark } from '../shared/bookmarks';
-import type { NavigationState, ViewId } from '../shared/navigation';
+import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 
 const initialStates: NavigationState[] = [
   { viewId: 1, serviceId: null, url: 'https://example.com/', title: '', canGoBack: false, canGoForward: false, isLoading: true },
@@ -148,9 +148,14 @@ export const App = () => {
   };
 
   const removeView = async () => {
+    const removedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
     const next = await window.multiAI.removeView(selectedViewId);
     setStates(next);
-    setSelectedViewId(next[0].viewId);
+    setSelectedViewId(next[Math.min(removedIndex, next.length - 1)].viewId);
+  };
+
+  const moveView = async (direction: ViewMoveDirection) => {
+    setStates(await window.multiAI.moveView(selectedViewId, direction));
   };
 
   const selectView = async (viewId: ViewId) => {
@@ -173,6 +178,7 @@ export const App = () => {
   };
 
   if (!selectedState) return null;
+  const selectedIndex = states.findIndex(({ viewId }) => viewId === selectedViewId);
 
   return (
     <header className="app-bar">
@@ -200,6 +206,10 @@ export const App = () => {
         </nav>
         <div className="workspace-actions">
           <button aria-label="画面を減らす" disabled={!isWorkspaceReady || states.length === 1} onClick={() => void removeView()}>−</button>
+          <div className="reorder-actions" role="group" aria-label="画面の並び順">
+            <button title="左へ移動" aria-label="選択中画面を左へ移動" disabled={!isWorkspaceReady || selectedIndex <= 0} onClick={() => void moveView('left')}>‹</button>
+            <button title="右へ移動" aria-label="選択中画面を右へ移動" disabled={!isWorkspaceReady || selectedIndex >= states.length - 1} onClick={() => void moveView('right')}>›</button>
+          </div>
           <button aria-label="画面を追加" disabled={!isWorkspaceReady || states.length === 4} onClick={() => void openLauncher()}>＋</button>
         </div>
         <div className="bookmark-actions">

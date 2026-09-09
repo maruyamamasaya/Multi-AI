@@ -1,6 +1,7 @@
 import type { AiServiceId } from './ai-services';
 
 export type ViewId = number;
+export type ViewMoveDirection = 'left' | 'right';
 
 export interface NavigationState {
   viewId: ViewId;
@@ -18,6 +19,7 @@ export const navigationChannels = {
   forward: 'view:forward',
   getStates: 'view:get-states',
   navigate: 'view:navigate',
+  move: 'view:move',
   remove: 'view:remove',
   reload: 'view:reload',
   stateChanged: 'view:state-changed',

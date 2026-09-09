@@ -1,6 +1,6 @@
 export {};
 
-import type { NavigationState, ViewId } from '../shared/navigation';
+import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 import type { Bookmark } from '../shared/bookmarks';
 import type { AiServiceId } from '../shared/ai-services';
 
@@ -15,6 +15,7 @@ declare global {
       getSelectedViewId: () => Promise<ViewId | null>;
       getBookmarks: () => Promise<Bookmark[]>;
       navigate: (viewId: ViewId, url: string) => Promise<void>;
+      moveView: (viewId: ViewId, direction: ViewMoveDirection) => Promise<NavigationState[]>;
       openBookmark: (viewId: ViewId, bookmarkId: string) => Promise<void>;
       onNavigationState: (listener: (state: NavigationState) => void) => () => void;
       ping: () => Promise<string>;

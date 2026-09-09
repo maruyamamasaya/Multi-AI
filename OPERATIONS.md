@@ -26,6 +26,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 
 「＋」を押すとAIサービス選択ランチャーが開きます。ChatGPT、Claude、Gemini、Perplexity、Grok、Microsoft Copilot、NotebookLMから選ぶと新しい画面が追加されます。キャンセルすると現在の画面構成を変更せず戻ります。画面は最大4つです。
 
+「−」は選択中画面を削除し、最低1画面を維持します。左右の移動ボタンは選択中画面を隣の位置へ移動し、端では無効になります。移動後も同じ画面が選択されたまま、URL、AI情報、履歴ごと並び替わります。
+
 各画面タブには画面番号に加えて、現在のAIサービスのアイコンと名称が表示されます。対応AI内の会話ページへ移動しても表示は維持され、未対応URLでは `AIサービス` と表示されます。
 
 ## 環境変数

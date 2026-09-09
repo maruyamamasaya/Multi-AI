@@ -3,7 +3,7 @@
 body { margin: 0; min-width: 720px; min-height: 100vh; }
 button, input, select { font: inherit; }
 .app-bar { height: 126px; border-bottom: 1px solid #303a34; background: #171d19; }
-.workspace-row, .navigation-bar, .brand, .view-tabs, .workspace-actions, .bookmark-actions { display: flex; align-items: center; }
+.workspace-row, .navigation-bar, .brand, .view-tabs, .workspace-actions, .reorder-actions, .bookmark-actions { display: flex; align-items: center; }
 .workspace-row { height: 58px; gap: 14px; padding: 0 14px; }
 .brand { gap: 8px; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: #102018; background: #91d8b5; font-weight: 800; }
@@ -19,7 +19,9 @@ h1 { margin: 0; font-size: .9rem; }
 .view-service-icon { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border-radius: 6px; color: #102018; background: #91d8b5; font-size: .56rem; font-weight: 850; }
 .view-service-name { overflow: hidden; max-width: 112px; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; font-weight: 650; }
 .workspace-actions, .bookmark-actions { gap: 4px; }
+.reorder-actions { gap: 2px; padding: 0 3px; border-inline: 1px solid #303a34; }
 .workspace-actions button, .bookmark-actions button { min-width: 30px; cursor: pointer; }
+.reorder-actions button { min-width: 25px; font-size: 1.05rem; }
 button:disabled { opacity: .35; cursor: default; }
 .bookmark-actions select { width: 140px; padding: 0 6px; }
 .navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }

@@ -140,10 +140,33 @@ const addView = async (serviceId: unknown): Promise<NavigationState[]> => {
 const removeView = async (viewId: unknown): Promise<NavigationState[]> => {
   if (pageViews.length === 1) throw new Error('少なくとも1つの画面が必要です。');
   const pageView = getPageView(viewId);
+  const removedIndex = pageViews.indexOf(pageView);
   mainWindow?.contentView.removeChildView(pageView.view);
   pageView.view.webContents.close();
   pageViews = pageViews.filter(({ id }) => id !== pageView.id);
-  if (selectedViewId === pageView.id) selectedViewId = pageViews[0].id;
+  if (selectedViewId === pageView.id) {
+    selectedViewId = pageViews[Math.min(removedIndex, pageViews.length - 1)].id;
+  }
+  updateViewBounds();
+  await persistWorkspace();
+  return getNavigationStates();
+};
+
+const moveView = async (
+  viewId: unknown,
+  direction: unknown,
+): Promise<NavigationState[]> => {
+  const pageView = getPageView(viewId);
+  if (direction !== 'left' && direction !== 'right') {
+    throw new Error('画面の移動方向が不正です。');
+  }
+  const currentIndex = pageViews.indexOf(pageView);
+  const targetIndex = currentIndex + (direction === 'left' ? -1 : 1);
+  if (targetIndex < 0 || targetIndex >= pageViews.length) return getNavigationStates();
+  [pageViews[currentIndex], pageViews[targetIndex]] = [
+    pageViews[targetIndex],
+    pageViews[currentIndex],
+  ];
   updateViewBounds();
   await persistWorkspace();
   return getNavigationStates();
@@ -169,6 +192,9 @@ const registerIpcHandlers = (): void => {
   ipcMain.handle('app:ping', () => 'pong');
   ipcMain.handle(navigationChannels.getStates, getNavigationStates);
   ipcMain.handle(navigationChannels.add, (_event, serviceId: unknown) => addView(serviceId));
+  ipcMain.handle(navigationChannels.move, (_event, viewId: unknown, direction: unknown) =>
+    moveView(viewId, direction),
+  );
   ipcMain.handle(navigationChannels.remove, (_event, viewId: unknown) => removeView(viewId));
   ipcMain.handle(navigationChannels.navigate, async (_event, viewId: unknown, input: unknown) => {
     if (typeof input !== 'string') throw new Error('URLを入力してください。');

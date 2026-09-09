@@ -5,6 +5,7 @@ import {
   navigationChannels,
   type NavigationState,
   type ViewId,
+  type ViewMoveDirection,
 } from '../shared/navigation';
 import { workspaceChannels } from '../shared/workspace';
 
@@ -22,6 +23,8 @@ contextBridge.exposeInMainWorld('multiAI', {
     ipcRenderer.invoke(workspaceChannels.getSelectedViewId),
   navigate: (viewId: ViewId, url: string): Promise<void> =>
     ipcRenderer.invoke(navigationChannels.navigate, viewId, url),
+  moveView: (viewId: ViewId, direction: ViewMoveDirection): Promise<NavigationState[]> =>
+    ipcRenderer.invoke(navigationChannels.move, viewId, direction),
   getBookmarks: (): Promise<Bookmark[]> => ipcRenderer.invoke(bookmarkChannels.getAll),
   openBookmark: (viewId: ViewId, bookmarkId: string): Promise<void> =>
     ipcRenderer.invoke(bookmarkChannels.open, viewId, bookmarkId),

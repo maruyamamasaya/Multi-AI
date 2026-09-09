@@ -18,6 +18,7 @@ describe('App', () => {
       getNavigationStates: vi.fn().mockResolvedValue(states),
       getSelectedViewId: vi.fn().mockResolvedValue(1),
       navigate: vi.fn().mockResolvedValue(undefined),
+      moveView: vi.fn().mockResolvedValue([states[1], states[0]]),
       onNavigationState: vi.fn().mockReturnValue(vi.fn()),
       openBookmark: vi.fn().mockResolvedValue(undefined),
       ping: vi.fn().mockResolvedValue('pong'),
@@ -81,6 +82,33 @@ describe('App', () => {
     window.multiAI.getSelectedViewId = vi.fn().mockResolvedValue(2);
     render(<App />);
     expect(await screen.findByRole('button', { name: '画面 2: AIサービス' })).toHaveClass('active');
+  });
+
+  it('moves the selected view left with its state and keeps it selected', async () => {
+    window.multiAI.getSelectedViewId = vi.fn().mockResolvedValue(2);
+    render(<App />);
+    const moveLeft = screen.getByRole('button', { name: '選択中画面を左へ移動' });
+    await waitFor(() => expect(moveLeft).toBeEnabled());
+    fireEvent.click(moveLeft);
+    await waitFor(() => expect(window.multiAI.moveView).toHaveBeenCalledWith(2, 'left'));
+    expect(screen.getByRole('button', { name: '画面 1: AIサービス' })).toHaveClass('active');
+  });
+
+  it('disables reorder controls at the selected view boundaries', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole('button', { name: '選択中画面を左へ移動' })).toBeDisabled());
+    expect(screen.getByRole('button', { name: '選択中画面を右へ移動' })).toBeEnabled();
+  });
+
+  it('selects the adjacent view after removing the selected view', async () => {
+    window.multiAI.getSelectedViewId = vi.fn().mockResolvedValue(2);
+    window.multiAI.removeView = vi.fn().mockResolvedValue([states[0]]);
+    render(<App />);
+    const remove = screen.getByRole('button', { name: '画面を減らす' });
+    await waitFor(() => expect(remove).toBeEnabled());
+    fireEvent.click(remove);
+    await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(2));
+    expect(screen.getByRole('button', { name: '画面 1: AIサービス' })).toHaveClass('active');
   });
 
   it('navigates the selected view', async () => {
