@@ -22,6 +22,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 
 `npm start` はmain、preload、rendererをbuildした後にElectronを起動します。ホットリロード用の開発サーバーは未導入です。
 
+起動後に左右のサンプルページを表示するには、`https://example.com/` と `https://example.org/` へのネットワーク接続が必要です。
+
 ## 環境変数
 
 現在必要な環境変数はありません。追加時は値を記載せず、変数名、用途、必須性をここへ記録します。
@@ -51,6 +53,8 @@ npm run build
 - AIサービスの資格情報をリポジトリやアプリ独自の設定へ保存しない。
 - Cookieなどのセッションデータをログやセッション記録へ含めない。
 - 外部サービスのURL、権限要求、ポップアップは信頼済みとして自動許可しない。
+- ブックマークはElectronの `userData` 配下にある `bookmarks.json` へ保存され、リポジトリには含まれない。
+- 画面数、URL、選択位置は同じ `userData` 配下の `workspace.json` へ保存される。
 
 ## Troubleshooting
 

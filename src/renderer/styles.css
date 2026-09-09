@@ -1,107 +1,31 @@
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #f7f8f2;
-  background: #121714;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #f2f5f3; background: #111512; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 720px; min-height: 100vh; }
+button, input, select { font: inherit; }
+.app-bar { height: 126px; border-bottom: 1px solid #303a34; background: #171d19; }
+.workspace-row, .navigation-bar, .brand, .view-tabs, .workspace-actions, .bookmark-actions { display: flex; align-items: center; }
+.workspace-row { height: 58px; gap: 14px; padding: 0 14px; }
+.brand { gap: 8px; }
+.brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: #102018; background: #91d8b5; font-weight: 800; }
+h1 { margin: 0; font-size: .9rem; }
+.view-tabs { flex: 1; gap: 4px; overflow-x: auto; }
+.view-tabs button, .workspace-actions button, .bookmark-actions button, .bookmark-actions select, .navigation-bar > button {
+  height: 30px; border: 1px solid #3a463f; border-radius: 7px; color: #cdd6d1; background: #222b26;
 }
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-button {
-  font: inherit;
-}
-
-.app-shell {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 48px;
-  background:
-    radial-gradient(circle at 15% 20%, rgb(99 179 145 / 18%), transparent 34%),
-    linear-gradient(145deg, #18231e 0%, #101411 70%);
-}
-
-.intro {
-  width: min(680px, 100%);
-}
-
-.eyebrow {
-  margin: 0 0 12px;
-  color: #81c9a7;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-}
-
-h1 {
-  margin: 0;
-  font-size: clamp(3rem, 9vw, 6.5rem);
-  letter-spacing: -0.07em;
-  line-height: 0.95;
-}
-
-.description {
-  max-width: 540px;
-  margin: 28px 0 40px;
-  color: #bdc9c1;
-  font-size: 1.1rem;
-  line-height: 1.8;
-}
-
-.status-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 20px 22px;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 14px;
-  background: rgb(255 255 255 / 5%);
-  box-shadow: 0 24px 70px rgb(0 0 0 / 28%);
-}
-
-.status-card div {
-  display: grid;
-  gap: 5px;
-}
-
-.status-label {
-  color: #819087;
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.status-card button {
-  padding: 11px 16px;
-  border: 0;
-  border-radius: 9px;
-  color: #102018;
-  background: #91d8b5;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.status-card button:hover {
-  background: #b0e7cb;
-}
-
-@media (max-width: 560px) {
-  .app-shell {
-    padding: 28px;
-  }
-
-  .status-card {
-    align-items: stretch;
-    flex-direction: column;
-  }
-}
+.view-tabs button { padding: 0 12px; cursor: pointer; }
+.view-tabs button.active { border-color: #91d8b5; color: #b9efd5; background: #26382e; }
+.workspace-actions, .bookmark-actions { gap: 4px; }
+.workspace-actions button, .bookmark-actions button { min-width: 30px; cursor: pointer; }
+button:disabled { opacity: .35; cursor: default; }
+.bookmark-actions select { width: 140px; padding: 0 6px; }
+.navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }
+.navigation-bar > button { min-width: 32px; cursor: pointer; }
+.navigation-bar .primary-button { padding: 0 13px; border: 0; color: #102018; background: #91d8b5; font-weight: 700; }
+.url-field { position: relative; flex: 1; }
+.url-field input { width: 100%; height: 32px; padding: 0 32px 0 10px; border: 1px solid #3a463f; border-radius: 7px; outline: none; color: #e7ece9; background: #111713; font-size: .78rem; }
+.url-field input:focus { border-color: #75b895; }
+.url-field input[aria-invalid="true"] { border-color: #e07b75; }
+.loading-indicator { position: absolute; top: 10px; right: 10px; width: 12px; height: 12px; border: 2px solid #496154; border-top-color: #91d8b5; border-radius: 50%; animation: spin .8s linear infinite; }
+.url-error { position: absolute; left: 118px; bottom: 2px; color: #f09b95; font-size: .65rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+@keyframes spin { to { transform: rotate(360deg); } }

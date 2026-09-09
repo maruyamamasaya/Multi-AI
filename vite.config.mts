@@ -11,9 +11,11 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    exclude: ['dist-electron/**', 'dist-renderer/**', 'node_modules/**'],
     fileParallelism: false,
     maxWorkers: 1,
     pool: 'threads',
-    setupFiles: ['./test/setup.ts'],
+    root: '.',
+    setupFiles: ['./src/renderer/test/setup.ts'],
   },
 });

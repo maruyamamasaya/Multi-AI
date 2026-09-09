@@ -35,26 +35,100 @@ Key entry points:
 - `ipcMain.handle('app:ping')`
 
 Related tests:
-- なし（Electron runtime testは未導入）
+- `src/main/layout.test.ts`
+
+## Web Content Views
+
+Primary paths:
+- `src/main/main.ts`
+- `src/main/layout.ts`
+
+Search keywords:
+- `WebContentsView`
+- `PAGE_URLS`
+- `attachPageViews`
+- `calculateViewBounds`
+- `addView`
+- `removeView`
+- `setPermissionRequestHandler`
+- `setWindowOpenHandler`
+
+Key entry points:
+- `createPageView`
+- `attachPageViews`
+
+Related tests:
+- `src/main/layout.test.ts`
+
+## Bookmarks
+
+Primary paths:
+- `src/main/main.ts`
+- `src/shared/bookmarks.ts`
+- `src/renderer/App.tsx`
+
+Search keywords:
+- `bookmarkChannels`
+- `readBookmarks`
+- `saveBookmarks`
+- `addBookmark`
+- `openBookmark`
+- `removeBookmark`
+
+Key entry points:
+- bookmark IPC handlers in `registerIpcHandlers`
+- `bookmark-actions`
+
+Related tests:
+- `src/renderer/App.test.tsx`
+
+## Workspace Persistence
+
+Primary paths:
+- `src/main/workspace-store.ts`
+- `src/shared/workspace.ts`
+- `src/main/main.ts`
+
+Search keywords:
+- `WorkspaceSnapshot`
+- `parseWorkspaceSnapshot`
+- `persistWorkspace`
+- `workspaceFile`
+- `selectedViewId`
+- `workspaceChannels`
+
+Key entry points:
+- `readWorkspaceSnapshot`
+- `writeWorkspaceSnapshot`
+- workspace IPC handlers in `registerIpcHandlers`
+
+Related tests:
+- `src/shared/workspace.test.ts`
+- `src/renderer/App.test.tsx`
 
 ## Preload and IPC
 
 Primary paths:
 - `src/preload/preload.ts`
 - `src/renderer/global.d.ts`
+- `src/shared/navigation.ts`
 
 Search keywords:
 - `app:ping`
 - `contextBridge`
 - `multiAI`
 - `ping`
+- `navigationChannels`
+- `NavigationState`
 
 Key entry points:
 - `contextBridge.exposeInMainWorld`
 - `window.multiAI.ping`
+- `registerIpcHandlers`
 
 Related tests:
 - `src/renderer/App.test.tsx`
+- `src/shared/navigation.test.ts`
 
 ## Renderer UI
 
@@ -65,19 +139,23 @@ Search keywords:
 - `App`
 - `checkConnection`
 - `connectionStatus`
-- `status-card`
+- `ViewToolbar`
+- `navigate`
+- `runNavigation`
 
 Key entry points:
 - `App`
 
 Related tests:
 - `src/renderer/App.test.tsx`
+- `src/shared/navigation.test.ts`
 
 ## Build and Validation
 
 Primary paths:
 - `package.json`
 - `scripts/verify.ps1`
+- `scripts/clean.mjs`
 - `vite.config.mts`
 - `tsconfig.*.json`
 - `eslint.config.mjs`

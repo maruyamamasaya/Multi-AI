@@ -1,5 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { bookmarkChannels, type Bookmark } from '../shared/bookmarks';
+import {
+  navigationChannels,
+  type NavigationState,
+  type ViewId,
+} from '../shared/navigation';
+import { workspaceChannels } from '../shared/workspace';
 
 contextBridge.exposeInMainWorld('multiAI', {
+  addBookmark: (viewId: ViewId): Promise<Bookmark[]> =>
+    ipcRenderer.invoke(bookmarkChannels.add, viewId),
+  addView: (): Promise<NavigationState[]> => ipcRenderer.invoke(navigationChannels.add),
+  back: (viewId: ViewId): Promise<void> => ipcRenderer.invoke(navigationChannels.back, viewId),
+  forward: (viewId: ViewId): Promise<void> =>
+    ipcRenderer.invoke(navigationChannels.forward, viewId),
+  getNavigationStates: (): Promise<NavigationState[]> =>
+    ipcRenderer.invoke(navigationChannels.getStates),
+  getSelectedViewId: (): Promise<ViewId | null> =>
+    ipcRenderer.invoke(workspaceChannels.getSelectedViewId),
+  navigate: (viewId: ViewId, url: string): Promise<void> =>
+    ipcRenderer.invoke(navigationChannels.navigate, viewId, url),
+  getBookmarks: (): Promise<Bookmark[]> => ipcRenderer.invoke(bookmarkChannels.getAll),
+  openBookmark: (viewId: ViewId, bookmarkId: string): Promise<void> =>
+    ipcRenderer.invoke(bookmarkChannels.open, viewId, bookmarkId),
+  onNavigationState: (listener: (state: NavigationState) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: NavigationState) => listener(state);
+    ipcRenderer.on(navigationChannels.stateChanged, handler);
+    return () => ipcRenderer.removeListener(navigationChannels.stateChanged, handler);
+  },
   ping: (): Promise<string> => ipcRenderer.invoke('app:ping'),
+  removeBookmark: (bookmarkId: string): Promise<Bookmark[]> =>
+    ipcRenderer.invoke(bookmarkChannels.remove, bookmarkId),
+  removeView: (viewId: ViewId): Promise<NavigationState[]> =>
+    ipcRenderer.invoke(navigationChannels.remove, viewId),
+  reload: (viewId: ViewId): Promise<void> => ipcRenderer.invoke(navigationChannels.reload, viewId),
+  selectView: (viewId: ViewId): Promise<void> =>
+    ipcRenderer.invoke(workspaceChannels.selectView, viewId),
 });
