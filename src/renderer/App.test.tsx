@@ -488,6 +488,25 @@ describe('App', () => {
     await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(1));
   });
 
+  it('offers URL, reload, minimize, and close controls on each visible pane', async () => {
+    window.multiAI.setTabVisibility = vi.fn().mockResolvedValue({ visibleViewIds: [2], selectedViewId: 2 });
+    render(<App />);
+
+    const headers = await screen.findByLabelText('表示中タブ');
+    expect(screen.getByLabelText('AIサービスの現在のURL: https://example.com/')).toBeInTheDocument();
+    expect(screen.getByLabelText('AIサービスの現在のURL: https://example.org/')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'AIサービスを更新' })[0]);
+    await waitFor(() => expect(window.multiAI.reload).toHaveBeenCalledWith(1));
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'AIサービスを最小化' })[0]);
+    await waitFor(() => expect(window.multiAI.setTabVisibility).toHaveBeenCalledWith(1, false));
+    expect(headers.firstElementChild?.children).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'AIサービスをこの画面から完全に閉じる' }));
+    await waitFor(() => expect(window.multiAI.removeView).toHaveBeenCalledWith(2));
+  });
+
   it('shows a lightweight limit message when a seventh pane is requested', async () => {
     const sixVisible = Array.from({ length: 6 }, (_, index) => ({
       ...states[0],

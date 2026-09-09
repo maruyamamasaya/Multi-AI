@@ -153,6 +153,7 @@ Search keywords:
 - `visibleIndices`
 - `tabVisibilityChannels`
 - `pane-headers`
+- `pane-actions`
 - `tabLabel`
 - `setPaneScrollOffset`
 

@@ -88,9 +88,14 @@ button:disabled { opacity: .35; cursor: default; }
 .navigation-bar { position: relative; height: 68px; gap: 6px; padding: 10px 14px 18px; border-top: 1px solid #28312c; }
 .pane-headers { position: fixed; z-index: 5; top: 250px; right: 0; left: 0; height: 28px; overflow-x: auto; overflow-y: hidden; background: #303a34; scrollbar-width: thin; scrollbar-color: #65746c #202722; }
 .pane-headers-track { display: grid; grid-template-columns: repeat(var(--pane-count), minmax(var(--minimum-pane-width), 1fr)); width: max(100%, calc(var(--pane-count) * var(--minimum-pane-width) + (var(--pane-count) - 1) * 1px)); min-height: 22px; gap: 1px; }
-.pane-header { display: flex; min-width: 0; align-items: center; gap: 6px; padding: 3px 8px; color: #cdd6d1; background: #1b221e; font-size: .68rem; }
-.pane-header strong { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.pane-header { display: flex; min-width: 0; align-items: center; gap: 5px; padding: 3px 5px 3px 7px; color: #cdd6d1; background: #1b221e; font-size: .68rem; }
+.pane-title { overflow: hidden; max-width: 82px; flex: 0 1 auto; text-overflow: ellipsis; white-space: nowrap; }
+.pane-url { overflow: hidden; min-width: 28px; flex: 1; color: #89958e; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
 .pane-header .view-service-icon { width: 18px; height: 18px; font-size: .48rem; }
+.pane-actions { display: flex; flex: 0 0 auto; gap: 2px; }
+.pane-actions button { display: grid; width: 20px; height: 20px; padding: 0; place-items: center; border: 0; border-radius: 4px; color: #aeb9b3; background: transparent; font-size: .75rem; line-height: 1; cursor: pointer; }
+.pane-actions button:hover:not(:disabled), .pane-actions button:focus-visible { color: #e7ece9; outline: none; background: #344039; }
+.pane-actions button:last-child:hover:not(:disabled), .pane-actions button:last-child:focus-visible { color: #ffd1ce; background: #5b2926; }
 .answer-status { flex: 0 0 auto; color: #77827c; font-size: .6rem; white-space: nowrap; }
 .answer-status.running { color: #d8b96f; }
 .answer-status.completed { color: #91d8b5; }

@@ -283,6 +283,15 @@ export const App = () => {
     }
   };
 
+  const reloadPane = async (state: NavigationState) => {
+    setTabError('');
+    try {
+      await window.multiAI.reload(state.viewId);
+    } catch (reason) {
+      setTabError(reason instanceof Error ? reason.message : 'ページを更新できませんでした。');
+    }
+  };
+
   useEffect(() => {
     const headers = paneHeadersRef.current;
     if (!headers || isFocusMode || isComparisonMode) return;
@@ -676,10 +685,16 @@ export const App = () => {
           const answerStatus = answerStatuses.get(state.viewId) ?? 'idle';
           return <div className="pane-header" key={state.viewId}>
             <span className={`view-service-icon service-${service.id}`} aria-hidden="true">{service.icon}</span>
-            <strong>{tabLabel(state)}</strong>
+            <strong className="pane-title">{tabLabel(state)}</strong>
+            <span className="pane-url" title={state.url} aria-label={`${tabLabel(state)}の現在のURL: ${state.url}`}>{state.url}</span>
             <span className={`answer-status ${answerStatus}`} aria-label={`${tabLabel(state)}の回答状態: ${answerStatusLabels[answerStatus]}`}>
               <span aria-hidden="true">●</span> {answerStatusLabels[answerStatus]}
             </span>
+            <div className="pane-actions" role="group" aria-label={`${tabLabel(state)}の操作`}>
+              <button type="button" title="このページを更新" aria-label={`${tabLabel(state)}を更新`} disabled={!isWorkspaceReady} onClick={() => void reloadPane(state)}>↻</button>
+              <button type="button" title="閉じずに待機中へ移す" aria-label={`${tabLabel(state)}を最小化`} disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || visibleStates.length === 1} onClick={() => void toggleTabVisibility(state)}>−</button>
+              <button type="button" title="タブを完全に閉じる" aria-label={`${tabLabel(state)}をこの画面から完全に閉じる`} disabled={!isWorkspaceReady || isFocusMode || isComparisonMode || states.length === 1} onClick={() => void removeView(state.viewId)}>×</button>
+            </div>
           </div>;
         })}
         </div>
