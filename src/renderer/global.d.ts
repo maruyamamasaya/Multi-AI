@@ -1,7 +1,7 @@
 export {};
 
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
-import type { Bookmark } from '../shared/bookmarks';
+import type { Bookmark, BookmarkUpdate } from '../shared/bookmarks';
 import type { AiServiceId } from '../shared/ai-services';
 import type { NamedWorkspaceLoadResult, NamedWorkspaceSummary, StartupWorkspaceSelection, StartupWorkspaceState } from '../shared/named-workspaces';
 import type { PromptSendResult } from '../shared/prompt';
@@ -30,6 +30,8 @@ declare global {
       onNavigationState: (listener: (state: NavigationState) => void) => () => void;
       ping: () => Promise<string>;
       removeBookmark: (bookmarkId: string) => Promise<Bookmark[]>;
+      setBookmarkManagerOpen: (open: boolean) => Promise<void>;
+      updateBookmark: (bookmarkId: string, update: BookmarkUpdate) => Promise<Bookmark[]>;
       removeNamedWorkspace: (workspaceId: string) => Promise<NamedWorkspaceSummary[]>;
       removeView: (viewId: ViewId) => Promise<NavigationState[]>;
       reload: (viewId: ViewId) => Promise<void>;

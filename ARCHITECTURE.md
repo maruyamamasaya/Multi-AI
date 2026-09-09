@@ -76,7 +76,9 @@ mainは起動時に `workspace.json` を検証して画面数、URL、選択位�
 
 rendererは各ビューに保持したサービスIDを使い、画面タブへ番号、サービスアイコン、AI名を表示します。サービスIDはURLとともにworkspaceへ保存し、会話ページや外部認証ページへ遷移しても表示を維持します。旧workspaceでは対応ホストからIDを推定し、未対応URLは汎用の `AIサービス` 表示へ安全にフォールバックします。
 
-ブックマーク追加時は現在URLのホストを `AI_SERVICES` と照合し、対応AIのページだけを表示名、正規化URL、サービスIDとともに保存します。同じURLは追加しません。旧 `bookmarks.json` のID、title、URLだけの項目はURLからサービスIDを補完し、未対応URL、不正項目、重複URLは安全に一覧から除外します。rendererは同じ中央定義からアイコン、AI名、表示名を一覧へ表示し、選択した会話URLを現在選択中のビューへ開きます。
+ブックマーク追加時は現在URLのホストを `AI_SERVICES` と照合し、対応AIのページだけを表示名、正規化URL、サービスID、保存日時とともに保存します。同じURLは追加しません。旧 `bookmarks.json` のID、title、URLだけの項目はURLからサービスIDを補完し、保存日時は推測せず「日時不明」として扱います。未対応URL、不正項目、重複URLは安全に一覧から除外します。rendererは同じ中央定義からアイコン、AI名、表示名を一覧へ表示し、選択した会話URLを現在選択中のビューへ開きます。
+
+AI会話管理はrenderer内の専用全画面ダイアログとして通常ワークスペースから分離します。表示中はmainが外部 `WebContentsView` だけを一時的に非表示にし、閉じると同じタブ構成とページ状態を復元します。検索とサービス絞り込みはrenderer内で行い、タイトル／URL編集はmainで再検証して既存JSONへ保存します。URL変更時はサービスIDを再判定し、重複URLを拒否します。削除は確認ダイアログを経由します。
 
 共通プロンプトはrendererからプロンプト本文と選択したビューIDだけをmainへ渡します。mainは各ビューの現在URLからサービスを再判定し、`src/main/prompt-adapters/` の対応adapterを各WebContents内で独立実行します。共通基盤は可視かつ空の入力欄だけへDOMイベント付きでテキストを設定し、サービス固有の有効な送信ボタンをクリックします。認証画面、iframe内、入力欄・ボタン不在、既存ドラフトありの場合はページ遷移や上書きをせず、そのビューだけ失敗にします。全対象は独立したPromiseとして最後まで実行し、画面ごとの成功・失敗をrendererへ返します。OSクリップボードやキーボード操作は使用しません。
 
@@ -91,7 +93,7 @@ rendererは各ビューに保持したサービスIDを使い、画面タブへ�
 - アプリ独自認証: なし
 - Environment Variables: なし
 - External Services: ChatGPT、Claude、Gemini、Perplexity、Grok、Microsoft Copilot、NotebookLM。正確なURLは `src/shared/ai-services.ts` を正本とする
-- Local Data: Electron `userData/bookmarks.json` に対応AIの会話ブックマーク（表示名、URL、AIサービスID）だけを保存
+- Local Data: Electron `userData/bookmarks.json` に対応AIの会話ブックマーク（表示名、URL、AIサービスID、新規データでは保存日時）だけを保存
 - Workspace Data: Electron `userData/workspace.json` に画面数、URL配列、サービスID配列、選択インデックス、分割レイアウトを保存
 - Named Workspace Data: Electron `userData/named-workspaces.json` にバージョン付きの名前、ID、日時、ワークスペースsnapshot一覧を保存
 

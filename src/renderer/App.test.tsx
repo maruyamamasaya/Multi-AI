@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
@@ -31,6 +31,7 @@ describe('App', () => {
       ping: vi.fn().mockResolvedValue('pong'),
       reload: vi.fn().mockResolvedValue(undefined),
       removeBookmark: vi.fn().mockResolvedValue([]),
+      setBookmarkManagerOpen: vi.fn().mockResolvedValue(undefined),
       removeNamedWorkspace: vi.fn().mockResolvedValue([]),
       removeView: vi.fn().mockResolvedValue([states[0]]),
       selectView: vi.fn().mockResolvedValue(undefined),
@@ -44,6 +45,7 @@ describe('App', () => {
       setHeaderCollapsed: vi.fn().mockResolvedValue(undefined),
       changeZoom: vi.fn().mockImplementation(async (action) => action === 'in' ? 110 : action === 'out' ? 90 : 100),
       startWorkspace: vi.fn().mockResolvedValue({ states, selectedViewId: 1 }),
+      updateBookmark: vi.fn().mockResolvedValue([]),
     };
   });
 
@@ -262,6 +264,56 @@ describe('App', () => {
     fireEvent.change(list, { target: { value: 'conversation-1' } });
     fireEvent.click(screen.getByRole('button', { name: '選択中画面でAI会話を開く' }));
     await waitFor(() => expect(window.multiAI.openBookmark).toHaveBeenCalledWith(1, 'conversation-1'));
+  });
+
+  it('manages saved conversations in a dedicated searchable and editable screen', async () => {
+    const saved = [
+      { id: 'chat-1', title: '設計相談', url: 'https://chatgpt.com/c/design', serviceId: 'chatgpt' as const, savedAt: '2026-09-09T00:00:00.000Z' },
+      { id: 'claude-1', title: '調査メモ', url: 'https://claude.ai/chat/research', serviceId: 'claude' as const },
+    ];
+    window.multiAI.getBookmarks = vi.fn().mockResolvedValue(saved);
+    window.multiAI.updateBookmark = vi.fn().mockResolvedValue(saved);
+    window.multiAI.removeBookmark = vi.fn().mockResolvedValue([saved[1]]);
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'AI会話管理を開く' }));
+    const manager = await screen.findByRole('dialog', { name: 'AI会話管理' });
+    expect(window.multiAI.setBookmarkManagerOpen).toHaveBeenCalledWith(true);
+    expect(screen.getByText(/ChatGPT · 保存日時:/)).toBeInTheDocument();
+    expect(screen.getByText(/Claude · 保存日時: 日時不明/)).toBeInTheDocument();
+
+    fireEvent.change(within(manager).getByRole('searchbox', { name: 'タイトル検索' }), { target: { value: '設計' } });
+    expect(screen.getByText('設計相談')).toBeInTheDocument();
+    expect(screen.queryByText('調査メモ')).not.toBeInTheDocument();
+    fireEvent.change(within(manager).getByRole('searchbox', { name: 'タイトル検索' }), { target: { value: '' } });
+    fireEvent.change(within(manager).getByRole('combobox', { name: 'AIサービス' }), { target: { value: 'claude' } });
+    expect(screen.getByText('調査メモ')).toBeInTheDocument();
+    expect(screen.queryByText('設計相談')).not.toBeInTheDocument();
+
+    fireEvent.click(within(manager).getByRole('button', { name: '編集' }));
+    fireEvent.change(within(manager).getByRole('textbox', { name: 'タイトル' }), { target: { value: '更新タイトル' } });
+    fireEvent.change(within(manager).getByRole('textbox', { name: 'URL' }), { target: { value: 'https://claude.ai/chat/updated' } });
+    fireEvent.click(within(manager).getByRole('button', { name: '保存' }));
+    await waitFor(() => expect(window.multiAI.updateBookmark).toHaveBeenCalledWith('claude-1', { title: '更新タイトル', url: 'https://claude.ai/chat/updated' }));
+
+    fireEvent.click(within(manager).getByRole('button', { name: '削除' }));
+    expect(screen.getByRole('alertdialog', { name: 'このAI会話を削除しますか？' })).toBeInTheDocument();
+    expect(window.multiAI.removeBookmark).not.toHaveBeenCalled();
+    fireEvent.click(within(manager).getByRole('button', { name: '削除する' }));
+    await waitFor(() => expect(window.multiAI.removeBookmark).toHaveBeenCalledWith('claude-1'));
+  });
+
+  it('opens a managed conversation in the selected pane and returns to the workspace', async () => {
+    window.multiAI.getBookmarks = vi.fn().mockResolvedValue([
+      { id: 'conversation-1', title: '設計相談', url: 'https://claude.ai/chat/example', serviceId: 'claude' },
+    ]);
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'AI会話管理を開く' }));
+    const manager = await screen.findByRole('dialog', { name: 'AI会話管理' });
+    fireEvent.click(within(manager).getByRole('button', { name: '開く' }));
+    await waitFor(() => expect(window.multiAI.openBookmark).toHaveBeenCalledWith(1, 'conversation-1'));
+    expect(window.multiAI.setBookmarkManagerOpen).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByRole('dialog', { name: 'AI会話管理' })).not.toBeInTheDocument();
   });
 
   it('saves the current workspace with a name', async () => {

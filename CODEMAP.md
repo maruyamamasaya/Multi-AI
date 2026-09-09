@@ -193,6 +193,7 @@ Primary paths:
 - `src/main/main.ts`
 - `src/shared/bookmarks.ts`
 - `src/renderer/App.tsx`
+- `src/renderer/BookmarkManager.tsx`
 
 Search keywords:
 - `bookmarkChannels`
@@ -202,10 +203,14 @@ Search keywords:
 - `addBookmark`
 - `openBookmark`
 - `removeBookmark`
+- `updateBookmark`
+- `BookmarkManager`
+- `managerSetOpen`
 
 Key entry points:
 - bookmark IPC handlers in `registerIpcHandlers`
 - `bookmark-actions`
+- `bookmark-manager`
 
 Related tests:
 - `src/shared/bookmarks.test.ts`

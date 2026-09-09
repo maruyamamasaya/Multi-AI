@@ -6,13 +6,14 @@ import {
   getAiServiceByUrl,
   type AiServiceId,
 } from '../shared/ai-services';
-import type { Bookmark } from '../shared/bookmarks';
+import type { Bookmark, BookmarkUpdate } from '../shared/bookmarks';
 import type { NamedWorkspaceSummary } from '../shared/named-workspaces';
 import type { PromptSendResult } from '../shared/prompt';
 import type { NavigationState, ViewId, ViewMoveDirection } from '../shared/navigation';
 import type { ZoomAction } from '../shared/zoom';
 import { MAX_VISIBLE_TABS, MINIMUM_PANE_WIDTH } from '../shared/pane-layout';
 import { ja } from '../shared/locales/ja';
+import { BookmarkManager } from './BookmarkManager';
 
 type AnswerStatus = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -140,6 +141,7 @@ export const App = () => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [selectedBookmarkId, setSelectedBookmarkId] = useState('');
   const [bookmarkError, setBookmarkError] = useState('');
+  const [isBookmarkManagerOpen, setIsBookmarkManagerOpen] = useState(false);
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [launcherError, setLauncherError] = useState('');
@@ -362,6 +364,35 @@ export const App = () => {
     } catch (reason) {
       setBookmarkError(reason instanceof Error ? reason.message : 'AI会話を削除できませんでした。');
     }
+  };
+
+  const openBookmarkManager = async () => {
+    setBookmarkError('');
+    try {
+      await window.multiAI.setBookmarkManagerOpen(true);
+      setIsBookmarkManagerOpen(true);
+    } catch (reason) {
+      setBookmarkError(reason instanceof Error ? reason.message : 'AI会話管理を開けませんでした。');
+    }
+  };
+
+  const closeBookmarkManager = async () => {
+    await window.multiAI.setBookmarkManagerOpen(false);
+    setIsBookmarkManagerOpen(false);
+  };
+
+  const openManagedBookmark = async (bookmarkId: string) => {
+    await window.multiAI.openBookmark(selectedViewId, bookmarkId);
+    await closeBookmarkManager();
+  };
+
+  const updateManagedBookmark = async (bookmarkId: string, update: BookmarkUpdate) => {
+    setBookmarks(await window.multiAI.updateBookmark(bookmarkId, update));
+  };
+
+  const deleteManagedBookmark = async (bookmarkId: string) => {
+    setBookmarks(await window.multiAI.removeBookmark(bookmarkId));
+    if (selectedBookmarkId === bookmarkId) setSelectedBookmarkId('');
   };
 
   const saveNamedWorkspace = async (event: FormEvent) => {
@@ -620,6 +651,7 @@ export const App = () => {
           </select>
           <button aria-label="選択中画面でAI会話を開く" disabled={!selectedBookmarkId || isComparisonMode} onClick={() => void openBookmark()}>開く</button>
           <button aria-label="AI会話ブックマークを削除" disabled={!selectedBookmarkId || isComparisonMode} onClick={() => void removeBookmark()}>×</button>
+          <button aria-label="AI会話管理を開く" title="保存済みAI会話を管理" disabled={!isWorkspaceReady || isFocusMode || isComparisonMode} onClick={() => void openBookmarkManager()}>管理</button>
         </div>
       </div>
       {tabError ? <span className="tab-error" role="alert">{tabError}</span> : null}
@@ -754,6 +786,7 @@ export const App = () => {
       {launcherError ? <p className="launcher-error" role="alert">{launcherError}</p> : null}
       {bookmarkError ? <p className="bookmark-error" role="alert">{bookmarkError}</p> : null}
       {isStartupSelectionOpen ? <StartupWorkspaceSelector error={startupError} onSelect={startWorkspace} workspaces={startupWorkspaces} /> : null}
+      {isBookmarkManagerOpen ? <BookmarkManager bookmarks={bookmarks} onClose={closeBookmarkManager} onDelete={deleteManagedBookmark} onOpen={openManagedBookmark} onUpdate={updateManagedBookmark} /> : null}
     </header>
   );
 };

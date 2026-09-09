@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { bookmarkChannels, type Bookmark } from '../shared/bookmarks';
+import { bookmarkChannels, type Bookmark, type BookmarkUpdate } from '../shared/bookmarks';
 import { launcherChannels, type AiServiceId } from '../shared/ai-services';
 import {
   namedWorkspaceChannels,
@@ -57,6 +57,10 @@ contextBridge.exposeInMainWorld('multiAI', {
   ping: (): Promise<string> => ipcRenderer.invoke('app:ping'),
   removeBookmark: (bookmarkId: string): Promise<Bookmark[]> =>
     ipcRenderer.invoke(bookmarkChannels.remove, bookmarkId),
+  setBookmarkManagerOpen: (open: boolean): Promise<void> =>
+    ipcRenderer.invoke(bookmarkChannels.managerSetOpen, open),
+  updateBookmark: (bookmarkId: string, update: BookmarkUpdate): Promise<Bookmark[]> =>
+    ipcRenderer.invoke(bookmarkChannels.update, bookmarkId, update),
   removeNamedWorkspace: (workspaceId: string): Promise<NamedWorkspaceSummary[]> =>
     ipcRenderer.invoke(namedWorkspaceChannels.remove, workspaceId),
   removeView: (viewId: ViewId): Promise<NavigationState[]> =>

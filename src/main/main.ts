@@ -8,7 +8,7 @@ import {
   launcherChannels,
   type AiServiceId,
 } from '../shared/ai-services';
-import { bookmarkChannels, parseBookmarks, type Bookmark } from '../shared/bookmarks';
+import { bookmarkChannels, parseBookmarks, parseBookmarkUpdate, type Bookmark } from '../shared/bookmarks';
 import { comparisonChannels, parseComparisonLayout, type ComparisonLayoutState } from '../shared/comparison';
 import {
   namedWorkspaceChannels,
@@ -70,6 +70,7 @@ let zoomPercent = 100;
 let zoomWriteQueue = Promise.resolve();
 let paneScrollOffset = 0;
 let isHeaderCollapsed = false;
+let isBookmarkManagerOpen = false;
 
 const getHeaderHeight = (): number => isHeaderCollapsed ? COLLAPSED_HEADER_HEIGHT : EXPANDED_HEADER_HEIGHT;
 
@@ -124,7 +125,7 @@ const persistWorkspace = (): Promise<void> => {
 const updateViewBounds = (): void => {
   if (!mainWindow) return;
   const { width, height } = mainWindow.getContentBounds();
-  if (isLauncherOpen || isStartupSelectionOpen) {
+  if (isLauncherOpen || isStartupSelectionOpen || isBookmarkManagerOpen) {
     pageViews.forEach(({ view }) => view.setVisible(false));
     return;
   }
@@ -557,7 +558,7 @@ const registerIpcHandlers = (): void => {
     if (!service) throw new Error('対応AIサービスのページだけ保存できます。');
     const bookmarks = await readBookmarks();
     if (!bookmarks.some(({ url }) => url === state.url)) {
-      bookmarks.push({ id: randomUUID(), title: state.title || state.url, url: state.url, serviceId: service.id });
+      bookmarks.push({ id: randomUUID(), title: state.title || state.url, url: state.url, serviceId: service.id, savedAt: new Date().toISOString() });
       await saveBookmarks(bookmarks);
     }
     return bookmarks;
@@ -567,6 +568,30 @@ const registerIpcHandlers = (): void => {
     const bookmarks = (await readBookmarks()).filter(({ id }) => id !== bookmarkId);
     await saveBookmarks(bookmarks);
     return bookmarks;
+  });
+  ipcMain.handle(bookmarkChannels.update, async (_event, bookmarkId: unknown, input: unknown) => {
+    if (typeof bookmarkId !== 'string') throw new Error('ブックマークが見つかりません。');
+    const update = parseBookmarkUpdate(input);
+    const bookmarks = await readBookmarks();
+    const bookmark = bookmarks.find(({ id }) => id === bookmarkId);
+    if (!bookmark) throw new Error('ブックマークが見つかりません。');
+    if (bookmarks.some(({ id, url }) => id !== bookmarkId && url === update.url)) {
+      throw new Error('同じURLの会話が既に保存されています。');
+    }
+    bookmark.title = update.title;
+    bookmark.url = update.url;
+    bookmark.serviceId = update.serviceId;
+    await saveBookmarks(bookmarks);
+    return bookmarks;
+  });
+  ipcMain.handle(bookmarkChannels.managerSetOpen, (_event, open: unknown) => {
+    if (typeof open !== 'boolean') throw new Error('AI会話管理画面の状態が不正です。');
+    if (open) {
+      ensureSplitMode();
+      if (isLauncherOpen || isStartupSelectionOpen) throw new Error('現在の画面を閉じてからAI会話管理を開いてください。');
+    }
+    isBookmarkManagerOpen = open;
+    updateViewBounds();
   });
   ipcMain.handle(bookmarkChannels.open, async (_event, viewId: unknown, bookmarkId: unknown) => {
     const bookmark = (await readBookmarks()).find(({ id }) => id === bookmarkId);
@@ -596,6 +621,7 @@ const createMainWindow = (workspace: WorkspaceSnapshot, showStartupSelection: bo
   mainWindow = window;
   zoomPercent = 100;
   isLauncherOpen = false;
+  isBookmarkManagerOpen = false;
   focusedViewId = null;
   comparisonLayout = null;
   paneScrollOffset = 0;
