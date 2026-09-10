@@ -85,6 +85,8 @@ npm run package:win
 
 現時点の成果物はコード署名されていないため、別PCではWindows SmartScreenの警告が表示されることがあります。正式配布に必要なコード署名、自動更新、CI/CDは未決定です。
 
+macOS版はWindowsからクロスビルドせず、Mac上でパッケージ化する方針です。MacでIntel／Apple Siliconの対象を決めて `.dmg` または `.zip` を生成し、Apple Developer証明書によるコード署名、Appleの公証（Notarization）、Gatekeeperを含む実機起動確認を行います。
+
 ## 運用上の注意
 
 - AIサービスの資格情報をリポジトリやアプリ独自の設定へ保存しない。

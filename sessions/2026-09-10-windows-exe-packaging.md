@@ -15,3 +15,4 @@
 ## 残課題
 
 - コード署名、自動更新、CI/CDは未導入。
+- macOS版は後日Mac上で作成する。Intel／Apple Siliconの対象、配布形式（`.dmg` / `.zip`）、Apple Developer証明書による署名、公証、Gatekeeperでの実機確認をその際に扱う。
