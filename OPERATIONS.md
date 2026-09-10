@@ -72,7 +72,18 @@ npm run build
 
 ## 配布・デプロイ
 
-配布形式、署名、自動更新、CI/CDは未決定です。Electronアプリの最小実装と対象OSの決定後に定義します。
+Windowsでは次のコマンドで、インストーラー版とポータブル版の `.exe` を生成します。
+
+```powershell
+npm run package:win
+```
+
+成果物は `release/` に生成されます。
+
+- `Multi-AI Setup <version>.exe`: インストール先を選択でき、デスクトップとスタートメニューへショートカットを作成するインストーラー
+- `Multi-AI <version>.exe`: インストールせず直接起動できるポータブル版
+
+現時点の成果物はコード署名されていないため、別PCではWindows SmartScreenの警告が表示されることがあります。正式配布に必要なコード署名、自動更新、CI/CDは未決定です。
 
 ## 運用上の注意
 
