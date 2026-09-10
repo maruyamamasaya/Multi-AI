@@ -47,6 +47,7 @@
 - 存在しない・壊れた保存データと非HTTP(S) URLの安全な1画面フォールバック
 - ESLint、TypeScript、Vitest、Vite build
 - Windows向けインストーラー版・ポータブル版 `.exe` のローカル生成
+- macOS向け `.app`・`.dmg`・`.zip` のローカル生成（Apple Silicon、Intel、Universal）
 - Fast / Full Validationの標準入口
 
 ## 進行中
@@ -56,7 +57,7 @@
 ## 未実装
 
 - Cookieを含むブラウザセッション方針と互換性検証
-- AIサービスのログイン互換性検証、署名・自動更新を含む正式配布
+- AIサービスのログイン互換性検証、macOSのコード署名・公証、自動更新を含む正式配布
 
 ## 既知の問題
 

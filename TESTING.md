@@ -47,4 +47,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -Fast
 | E2E | 未導入 |
 | Build | `npm run build` |
 | Windows package | `npm run package:win`（Windows上で手動実行） |
+| macOS package | `npm run package:mac`（Mac上で同じCPU向けを手動実行） |
 | Documentation | 必須文書、ローカルリンク、差分を標準Verifyで検証 |

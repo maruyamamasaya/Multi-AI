@@ -85,7 +85,27 @@ npm run package:win
 
 現時点の成果物はコード署名されていないため、別PCではWindows SmartScreenの警告が表示されることがあります。正式配布に必要なコード署名、自動更新、CI/CDは未決定です。
 
-macOS版はWindowsからクロスビルドせず、Mac上でパッケージ化する方針です。MacでIntel／Apple Siliconの対象を決めて `.dmg` または `.zip` を生成し、Apple Developer証明書によるコード署名、Appleの公証（Notarization）、Gatekeeperを含む実機起動確認を行います。
+macOSではMac上で次のコマンドを実行すると、現在のMacと同じCPU向けの `.app`、`.dmg`、`.zip` を `release/` へ生成します。
+
+```powershell
+npm run package:mac
+```
+
+CPUを明示する場合は次のいずれかを使用します。
+
+```powershell
+npm run package:mac:arm64
+npm run package:mac:x64
+npm run package:mac:universal
+```
+
+- Apple Silicon Mac: `arm64`
+- Intel Mac: `x64`
+- 両方へ1つのアプリで配布: `universal`（ファイルサイズは大きくなる）
+
+`.dmg` は通常の配布用、`.zip` は直接展開用です。展開された実行アプリは `release/mac-arm64/Multi-AI.app`、`release/mac/Multi-AI.app`、または `release/mac-universal/Multi-AI.app` に生成されます。生成先名はelectron-builderのバージョンや対象CPUにより異なる場合があります。
+
+現時点のMac成果物は未署名・未公証です。手元ではFinderのコンテキストメニューから「開く」で起動できますが、他のMacへ正式配布する場合はApple Developer ID証明書で署名し、Appleの公証（Notarization）とGatekeeperでの実機確認を行ってください。
 
 ## 運用上の注意
 

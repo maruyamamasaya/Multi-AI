@@ -102,7 +102,7 @@ AI会話管理はrenderer内の専用全画面ダイアログとして通常ワ�
 
 ## Build and Deployment
 
-build前に既存成果物だけを削除し、TypeScriptがmain/preload/sharedを `dist-electron/` へ、Viteがrendererを `dist-renderer/` へ出力します。インストーラー生成、署名、自動更新、CI/CDは未導入です。
+build前に既存成果物だけを削除し、TypeScriptがmain/preload/sharedを `dist-electron/` へ、Viteがrendererを `dist-renderer/` へ出力します。electron-builderでWindows向けNSIS／portableと、macOS向けDMG／ZIP／展開済み`.app`を生成します。コード署名、公証、自動更新、CI/CDは未導入です。
 
 ## Security Boundaries
 
