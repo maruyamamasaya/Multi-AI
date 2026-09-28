@@ -393,6 +393,18 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '画面 2: AIサービス' })).toHaveTextContent('2AI');
   });
 
+  it('uses the current URL when a tab crosses to another AI service', async () => {
+    window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
+      { ...states[0], serviceId: 'gemini', url: 'https://chatgpt.com/c/current' },
+      { ...states[1], serviceId: 'chatgpt', url: 'https://claude.ai/chat/current' },
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: '画面 1: ChatGPT' })).toHaveTextContent('1C');
+    expect(screen.getByRole('button', { name: '画面 2: Claude' })).toHaveTextContent('2Cl');
+  });
+
   it('shows duplicate instances of the same AI independently', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       { ...states[0], url: 'https://claude.ai/chat/one' },
@@ -453,7 +465,7 @@ describe('App', () => {
     expect(screen.getByText('画面 2 Perplexity: 成功')).toBeInTheDocument();
   });
 
-  it('shows conservative per-pane answer statuses without treating send success as completion', async () => {
+  it('shows per-pane prompt sending statuses without tracking answer completion', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       { ...states[0], serviceId: 'chatgpt', url: 'https://chatgpt.com/' },
       { ...states[1], serviceId: 'perplexity', url: 'https://www.perplexity.ai/' },
@@ -466,16 +478,15 @@ describe('App', () => {
 
     fireEvent.change(screen.getByRole('textbox', { name: '共通プロンプト' }), { target: { value: '状態確認' } });
     fireEvent.click(screen.getByRole('button', { name: '選択したAIへ送信' }));
-    expect(await screen.findByLabelText('ChatGPTの回答状態: 実行中')).toBeInTheDocument();
-    expect(screen.getByLabelText('Perplexityの回答状態: 実行中')).toBeInTheDocument();
+    expect(await screen.findByLabelText('ChatGPTの回答状態: 送信中')).toBeInTheDocument();
+    expect(screen.getByLabelText('Perplexityの回答状態: 送信中')).toBeInTheDocument();
 
     resolveSend([
       { viewId: 1, serviceId: 'chatgpt', status: 'success', message: '送信操作を完了しました。' },
       { viewId: 2, serviceId: 'perplexity', status: 'failure', message: '送信ボタンが見つかりません。' },
     ]);
     expect(await screen.findByLabelText('Perplexityの回答状態: 失敗')).toBeInTheDocument();
-    expect(screen.getByLabelText('ChatGPTの回答状態: 実行中')).toBeInTheDocument();
-    expect(screen.queryByLabelText('ChatGPTの回答状態: 完了')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('ChatGPTの回答状態: 送信済み')).toBeInTheDocument();
   });
 
   it('compares sent views, excludes and restores a target, focuses, and exits', async () => {
@@ -512,15 +523,14 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '画面を追加' })).toBeEnabled();
   });
 
-  it('keeps the selected AI identity through an external authentication URL', async () => {
+  it('does not keep a stale AI identity on an external URL', async () => {
     window.multiAI.getNavigationStates = vi.fn().mockResolvedValue([
       { ...states[0], serviceId: 'notebooklm', url: 'https://accounts.google.com/signin' },
       states[1],
     ]);
     render(<App />);
-    const notebookTab = await screen.findByRole('button', { name: '画面 1: NotebookLM' });
-    expect(notebookTab).toHaveTextContent('1N');
-    expect(notebookTab).not.toHaveTextContent('NotebookLM');
+    const unknownTab = await screen.findByRole('button', { name: '画面 1: AIサービス' });
+    expect(unknownTab).toHaveTextContent('1AI');
   });
 
   it('keeps many independent tabs, displays up to six, and labels duplicate AI panes', async () => {

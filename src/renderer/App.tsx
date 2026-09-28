@@ -20,8 +20,8 @@ type AnswerStatus = 'idle' | 'running' | 'completed' | 'failed';
 
 const answerStatusLabels: Record<AnswerStatus, string> = {
   idle: '未実行',
-  running: '実行中',
-  completed: '完了',
+  running: '送信中',
+  completed: '送信済み',
   failed: '失敗',
 };
 
@@ -184,9 +184,9 @@ export const App = () => {
   const selectedBookmarkService = getAiServiceByUrl(selectedState?.url ?? '');
   const visibleStates = states.filter(({ isVisible }) => isVisible);
   const tabLabel = (state: NavigationState): string => {
-    const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
+    const service = getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
     const matching = states.filter((candidate) =>
-      (getAiService(candidate.serviceId) ?? getAiServiceByUrl(candidate.url) ?? UNKNOWN_AI_SERVICE).id === service.id,
+      (getAiServiceByUrl(candidate.url) ?? UNKNOWN_AI_SERVICE).id === service.id,
     );
     return matching.length > 1 ? `${service.name} ${matching.indexOf(state) + 1}` : service.name;
   };
@@ -511,7 +511,7 @@ export const App = () => {
       setAnswerStatuses((current) => {
         const next = new Map(current);
         results.forEach((result) => {
-          if (result.status === 'failure') next.set(result.viewId, 'failed');
+          next.set(result.viewId, result.status === 'success' ? 'completed' : 'failed');
         });
         return next;
       });
@@ -623,7 +623,7 @@ export const App = () => {
         <div className="brand"><span className="brand-mark">M</span><h1>Multi-AI</h1></div>
         <nav className="view-tabs" aria-label="画面選択">
           {states.map((state, index) => {
-            const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
+            const service = getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
             const isSelected = state.viewId === selectedViewId;
             return (
               <div
@@ -800,7 +800,7 @@ export const App = () => {
       >
         <div className="pane-headers-track" style={{ '--pane-count': paneStates.length, '--minimum-pane-width': `${MINIMUM_PANE_WIDTH}px` } as React.CSSProperties}>
         {paneStates.map((state) => {
-          const service = getAiService(state.serviceId) ?? getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
+          const service = getAiServiceByUrl(state.url) ?? UNKNOWN_AI_SERVICE;
           const answerStatus = answerStatuses.get(state.viewId) ?? 'idle';
           return <div
             className={`pane-header${draggedPaneId === state.viewId ? ' dragging' : ''}${dropTargetPaneId === state.viewId ? ' drop-target' : ''}`}
