@@ -80,6 +80,8 @@ npm run package:win
 
 成果物は `release/` に生成されます。
 
+Windowsアプリ、インストーラー、ショートカットのアイコンには `build/icon.ico` を使用します。元画像は `build/icon-source.png` です。
+
 - `Multi-AI Setup <version>.exe`: インストール先を選択でき、デスクトップとスタートメニューへショートカットを作成するインストーラー
 - `Multi-AI <version>.exe`: インストールせず直接起動できるポータブル版
 
