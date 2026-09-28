@@ -1,5 +1,5 @@
 import { normalizeNavigationUrl, type ViewId } from './navigation';
-import { getAiService, getAiServiceByUrl, type AiServiceId } from './ai-services';
+import { getAiServiceByUrl, type AiServiceId } from './ai-services';
 import { MAX_VISIBLE_TABS } from './pane-layout';
 import { DEFAULT_ZOOM_PERCENT, parseZoomPercent } from './zoom';
 
@@ -58,10 +58,7 @@ export const parseWorkspaceSnapshot = (
       Number(candidate.selectedIndex) < urls.length
         ? Number(candidate.selectedIndex)
         : 0;
-    const serviceIds = urls.map((url, index) => {
-      const savedId = Array.isArray(candidate.serviceIds) ? candidate.serviceIds[index] : undefined;
-      return getAiService(savedId)?.id ?? getAiServiceByUrl(url)?.id ?? null;
-    });
+    const serviceIds = urls.map((url) => getAiServiceByUrl(url)?.id ?? null);
     const viewCount = urls.length;
     const visibleIndices = Array.isArray(candidate.visibleIndices)
       ? [...new Set(candidate.visibleIndices.filter(

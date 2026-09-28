@@ -62,7 +62,7 @@ describe('parseWorkspaceSnapshot', () => {
     });
   });
 
-  it('restores a saved service identity across an authentication redirect', () => {
+  it('derives the restored service identity from the current URL', () => {
     expect(
       parseWorkspaceSnapshot(
         {
@@ -72,7 +72,18 @@ describe('parseWorkspaceSnapshot', () => {
         },
         fallback,
       ),
-    ).toMatchObject({ serviceIds: ['notebooklm'] });
+    ).toMatchObject({ serviceIds: [null] });
+
+    expect(
+      parseWorkspaceSnapshot(
+        {
+          urls: ['https://chatgpt.com/c/current'],
+          serviceIds: ['gemini'],
+          selectedIndex: 0,
+        },
+        fallback,
+      ),
+    ).toMatchObject({ serviceIds: ['chatgpt'] });
   });
 
   it('restores a supported shared zoom level', () => {

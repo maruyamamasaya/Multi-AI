@@ -102,12 +102,20 @@ const getNavigationState = ({ id, lastUrl, serviceId, isVisible, view }: PageVie
 const getNavigationStates = (): NavigationState[] => pageViews.map(getNavigationState);
 const getVisiblePageViews = (): PageView[] => pageViews.filter(({ isVisible }) => isVisible);
 
+const synchronizePageViewLocation = (pageView: PageView): void => {
+  pageView.lastUrl = pageView.view.webContents.getURL() || pageView.lastUrl;
+  pageView.serviceId = getAiServiceByUrl(pageView.lastUrl)?.id ?? null;
+};
+
 const workspaceFile = (): string => path.join(app.getPath('userData'), 'workspace.json');
 const namedWorkspacesFile = (): string => path.join(app.getPath('userData'), 'named-workspaces.json');
 
 const captureWorkspace = (): WorkspaceSnapshot => ({
     viewCount: pageViews.length,
-    urls: pageViews.map(({ lastUrl, view }) => view.webContents.getURL() || lastUrl),
+    urls: pageViews.map((pageView) => {
+      synchronizePageViewLocation(pageView);
+      return pageView.lastUrl;
+    }),
     serviceIds: pageViews.map(({ serviceId }) => serviceId),
     visibleIndices: pageViews.flatMap(({ isVisible }, index) => isVisible ? [index] : []),
     selectedIndex: Math.max(0, pageViews.findIndex(({ id }) => id === selectedViewId)),
@@ -221,7 +229,7 @@ const createPageView = (
   applyCurrentZoom();
   const publishState = () => {
     if (mainWindow && !pageView.view.webContents.isDestroyed()) {
-      pageView.lastUrl = pageView.view.webContents.getURL() || pageView.lastUrl;
+      synchronizePageViewLocation(pageView);
       mainWindow.webContents.send(navigationChannels.stateChanged, getNavigationState(pageView));
     }
   };
