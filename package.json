@@ -55,7 +55,7 @@
       "package.json"
     ],
     "win": {
-      "icon": "build/icon.ico",
+      "icon": "build/icon-multiai.ico",
       "target": [
         "nsis",
         "portable"
@@ -67,7 +67,8 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "icon": "build/icon-multiai.icns"
     },
     "dmg": {
       "title": "${productName} ${version}"

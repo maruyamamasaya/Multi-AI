@@ -80,7 +80,7 @@ npm run package:win
 
 成果物は `release/` に生成されます。
 
-Windowsアプリ、インストーラー、ショートカットのアイコンには `build/icon.ico` を使用します。元画像は `build/icon-source.png` です。
+Windowsアプリ、インストーラー、ショートカットのアイコンには `build/icon-multiai.ico`、macOSアプリには `build/icon-multiai.icns` を使用します。元画像は `build/icon-multiai.png` です。旧アイコンは比較用に保持しています。
 
 - `Multi-AI Setup <version>.exe`: インストール先を選択でき、デスクトップとスタートメニューへショートカットを作成するインストーラー
 - `Multi-AI <version>.exe`: インストールせず直接起動できるポータブル版
