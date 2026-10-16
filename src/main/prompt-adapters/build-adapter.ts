@@ -27,12 +27,18 @@ export const buildPromptScript = (config: PromptAdapterConfig, prompt: string): 
     return { success: false, message: '対応する入力欄ではありません。' };
   }
   await new Promise((resolve) => setTimeout(resolve, 180));
-  const submit = submitSelectors.map((selector) => document.querySelector(selector)).find(visible);
-  if (!submit || submit.disabled || submit.getAttribute('aria-disabled') === 'true') {
-    return { success: false, message: '送信ボタンが見つからないか、現在利用できません。' };
+  const deadline = Date.now() + ${JSON.stringify(config.submitWaitMs ?? 0)};
+  while (true) {
+    const submit = submitSelectors.flatMap((selector) => [...document.querySelectorAll(selector)])
+      .find((element) => visible(element) && !element.disabled && element.getAttribute('aria-disabled') !== 'true');
+    if (submit) {
+      submit.click();
+      return { success: true, message: '送信操作を完了しました。' };
+    }
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  submit.click();
-  return { success: true, message: '送信操作を完了しました。' };
+  return { success: false, message: '送信ボタンが見つからないか、現在利用できません。入力欄の文章を確認してください。' };
 })()
 `.trim();
 

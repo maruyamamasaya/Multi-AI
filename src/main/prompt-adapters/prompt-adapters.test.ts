@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_SERVICES } from '../../shared/ai-services';
 import { buildPromptScript } from './build-adapter';
 import { promptAdapters } from './index';
 
 describe('prompt adapters', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue({ length: 1 } as DOMRectList);
@@ -29,6 +32,45 @@ describe('prompt adapters', () => {
     const script = buildPromptScript({ serviceId: 'claude', inputSelectors: ['#prompt'], submitSelectors: ['#send'] }, 'new prompt');
     await expect(Function(`return ${script}`)()).resolves.toMatchObject({ success: false, message: '入力欄に未送信のテキストがあります。' });
     expect(document.querySelector<HTMLTextAreaElement>('#prompt')).toHaveValue('draft');
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it('waits for ChatGPT to enable its send button and clicks only once', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<textarea id="prompt-textarea"></textarea><button data-testid="send-button" disabled>Send</button>';
+    const send = document.querySelector<HTMLButtonElement>('button')!;
+    const click = vi.spyOn(send, 'click');
+    const result = Function(`return ${promptAdapters.get('chatgpt')!.buildScript('test')}`)();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(click).not.toHaveBeenCalled();
+    send.disabled = false;
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toMatchObject({ success: true });
+    expect(click).toHaveBeenCalledOnce();
+  });
+
+  it('finds a ChatGPT send button mounted after input, skipping hidden matches', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<textarea id="prompt-textarea"></textarea><button data-testid="send-button" style="visibility:hidden">Hidden</button>';
+    const result = Function(`return ${promptAdapters.get('chatgpt')!.buildScript('test')}`)();
+    await vi.advanceTimersByTimeAsync(500);
+    const send = document.createElement('button');
+    send.dataset.testid = 'send-button';
+    document.body.append(send);
+    const click = vi.spyOn(send, 'click');
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toMatchObject({ success: true });
+    expect(click).toHaveBeenCalledOnce();
+  });
+
+  it('times out without clicking or removing the draft when ChatGPT cannot send', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<textarea id="prompt-textarea"></textarea><button data-testid="send-button" aria-disabled="true">Send</button>';
+    const click = vi.spyOn(document.querySelector('button')!, 'click');
+    const result = Function(`return ${promptAdapters.get('chatgpt')!.buildScript('test')}`)();
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toMatchObject({ success: false });
+    expect(document.querySelector('textarea')).toHaveValue('test');
     expect(click).not.toHaveBeenCalled();
   });
 

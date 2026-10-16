@@ -4,6 +4,7 @@ export interface PromptAdapterConfig {
   serviceId: AiServiceId;
   inputSelectors: readonly string[];
   submitSelectors: readonly string[];
+  submitWaitMs?: number;
 }
 
 export interface PromptAdapter {
